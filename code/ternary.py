@@ -13,10 +13,10 @@ from scipy.stats import dirichlet
 axis_vals = np.arange(start=0.0, stop=1.1, step=0.1)
 
 # 軸線用の値を作成
-axis_x = [0.5, 0.0, 1.0]
-axis_y = [0.5*np.sqrt(3.0), 0.0, 0.0]
-axis_u = [-0.5, 1.0, -0.5]
-axis_v = [-0.5*np.sqrt(3.0), 0.0, 0.5*np.sqrt(3.0)]
+axis_x = np.array([0.5, 0.0, 1.0])
+axis_y = np.array([0.5*np.sqrt(3.0), 0.0, 0.0])
+axis_u = np.array([-0.5, 1.0, -0.5])
+axis_v = np.array([-0.5*np.sqrt(3.0), 0.0, 0.5*np.sqrt(3.0)])
 
 # グリッド線用の値を作成
 grid_x = np.hstack([
@@ -226,10 +226,10 @@ def update(i):
     plt.title(label='$x=(x_0, x_1, x_2)$', loc='left')
 
 # gif画像を作成
-anim = FuncAnimation(fig=fig, func=update, frames=frame_num, interval=100)
+ani = FuncAnimation(fig=fig, func=update, frames=frame_num, interval=100)
 
 # gif画像を保存
-anim.save('../../figure/Python/ternary_scatter.gif')
+ani.save('../figure/Python/ternary_scatter.gif')
 
 
 # %% # 三角座標上の格子点の作成
@@ -238,7 +238,7 @@ anim.save('../../figure/Python/ternary_scatter.gif')
 
 # 2次元座標の値を作成
 y_0_vals = np.linspace(start=0.0, stop=1.0, num=201)
-y_1_vals = np.linspace(start=0.0, stop=0.5*np.sqrt(3.0), num=201)
+y_1_vals = np.linspace(start=0.0, stop=0.5*np.sqrt(3.0), num=200)
 
 # 2次元座標の格子点を作成
 y_0_grid, y_1_grid = np.meshgrid(y_0_vals, y_1_vals)
@@ -311,13 +311,13 @@ plt.text(x=0.5, y=0.0, s='\n'+'$x_1$',
          ha='center', va='top', size=25) # 三角座標のy軸ラベル
 plt.text(x=0.75, y=0.25*np.sqrt(3.0), s=' '*4+'$x_2$', 
          ha='left', va='center', size=25) # 三角図のz軸ラベル
-plt.contourf(y_0_grid, y_1_grid, dens_vals.reshape(y_shape), 
-             alpha = 0.8) # 確率密度の等高線
+cnf = plt.contourf(y_0_grid, y_1_grid, dens_vals.reshape(y_shape), 
+                   alpha = 0.8) # 確率密度の等高線
 plt.xticks(ticks=[0.0, 0.5, 1.0], labels='') # 2次元座標のx軸目盛
 plt.yticks(ticks=[0.0, 0.25*np.sqrt(3.0), 0.5*np.sqrt(3.0)], labels='') # 2次元座標のy軸目盛
 plt.grid() # 2次元座標のグリッド線
 plt.axis('equal') # アスペクト比
-plt.colorbar(label='density') # カラーバー
+plt.colorbar(cnf, label='density') # カラーバー
 plt.suptitle(t='Ternary Contour Plot', fontsize=20) # タイトル
 plt.title(label=param_text, loc='left') # パラメータラベル
 plt.show() # 描画
@@ -333,7 +333,7 @@ alpha_2_vals = np.arange(start=3.0, stop=12.1, step=0.1).round(decimals=1)
 # フレーム数を設定
 frame_num = len(alpha_0_vals)
 
-# グラデーション用に確率密度の最小値と最大値を設定
+# z軸の最小値と最大値を設定
 dens_min = 0.0
 alpha_max_k = np.array([alpha_0_vals.max(), alpha_1_vals.max(), alpha_2_vals.max()])
 dens_max = np.ceil(
@@ -395,15 +395,13 @@ def update(i):
     plt.title(label=param_text, loc='left') # パラメータラベル
 
 # gif画像を作成
-anim = FuncAnimation(fig=fig, func=update, frames=frame_num, interval=100)
+ani = FuncAnimation(fig=fig, func=update, frames=frame_num, interval=100)
 
 # gif画像を保存
-anim.save('../../figure/Python/ternary_contour.gif')
+ani.save('../figure/Python/ternary_contour.gif')
 
 
 # %% # 3Dプロットの作成
-
-## 描画用の関数の計算
 
 # ディリクレ分布のパラメータを指定
 alpha_k = np.array([1.5, 2.5, 3.5])
@@ -413,9 +411,6 @@ dens_vals = np.array(
     [dirichlet.pdf(x=x_k, alpha=alpha_k) if all(x_k != np.nan) else np.nan for x_k in x_points]
 )
 
-# %%
-
-## 3Dプロットの作図
 
 # パラメータラベル用の文字列を作成
 param_text = '$' + '\\alpha=('+', '.join([str(val) for val in alpha_k])+')' + ', x=(x_0, x_1, x_2)' + '$'
@@ -443,25 +438,33 @@ ax.text(x=0.75+0.1, y=0.25*np.sqrt(3.0), z=0.0, s='$x_2$',
 ax.contour(y_0_grid, y_1_grid, dens_vals.reshape(y_shape), 
            offset=0.0) # 確率密度の等高線
 ax.plot_surface(y_0_grid, y_1_grid, dens_vals.reshape(y_shape), 
-                cmap='viridis', alpha=0.6) # 確率密度の曲面
+                cmap='viridis', alpha=0.8) # 確率密度の曲面
 ax.set_xticks(ticks=[0.0, 0.5, 1.0], labels='') # 2次元座標のx軸目盛
 ax.set_yticks(ticks=[0.0, 0.25*np.sqrt(3.0), 0.5*np.sqrt(3.0)], labels='') # 2次元座標のy軸目盛
 ax.set_zlabel(zlabel='density') # z軸ラベル
 ax.set_box_aspect(aspect=(1, 1, 1)) # アスペクト比
-fig.suptitle(t='Ternary Plot', fontsize=20) # タイトル
+fig.suptitle(t='3D Ternary Plot', fontsize=20) # タイトル
 ax.set_title(label=param_text, loc='left') # パラメータラベル
 #ax.view_init(elev=90, azim=-90) # 表示角度
 plt.show() # 描画
 
-# %%
+# %% # 3Dプロットのアニメーションの作図：座標の確認
 
-## 3Dプロットのアニメーションの作図
+# ディリクレ分布のパラメータを指定
+alpha_k = np.array([1.5, 2.5, 3.5])
+
+# ディリクレ分布の確率密度を計算
+dens_vals = np.array(
+    [dirichlet.pdf(x=x_k, alpha=alpha_k) if all(x_k != np.nan) else np.nan for x_k in x_points]
+)
+
 
 # 水平方向の角度として利用する値を指定
 h_vals = np.arange(0.0, 360.0, step=5.0)
 
 # フレーム数を設定
 frame_num = len(h_vals)
+
 
 # パラメータラベル用の文字列を作成
 param_text = '$' + '\\alpha=('+', '.join([str(val) for val in alpha_k])+')' + ', x=(x_0, x_1, x_2)' + '$'
@@ -500,7 +503,7 @@ def update(i):
     ax.contour(y_0_grid, y_1_grid, dens_vals.reshape(y_shape), 
                offset=0.0) # 確率密度の等高線
     ax.plot_surface(y_0_grid, y_1_grid, dens_vals.reshape(y_shape), 
-                    cmap='viridis', alpha=0.6) # 確率密度の曲面
+                    cmap='viridis', alpha=0.8) # 確率密度の曲面
     ax.set_xticks(ticks=[0.0, 0.5, 1.0], labels='') # 2次元座標のx軸目盛
     ax.set_yticks(ticks=[0.0, 0.25*np.sqrt(3.0), 0.5*np.sqrt(3.0)], labels='') # 2次元座標のy軸目盛
     ax.set_zlabel('density') # z軸ラベル
@@ -509,13 +512,13 @@ def update(i):
     ax.view_init(elev=40, azim=h) # 表示角度
 
 # gif画像を作成
-anim = FuncAnimation(fig=fig, func=update, frames=frame_num, interval=100)
+ani = FuncAnimation(fig=fig, func=update, frames=frame_num, interval=100)
 
 # gif画像を保存
-anim.save('../../figure/Python/ternary_3d_turn.gif')
+ani.save('../figure/Python/ternary_3d_turn.gif')
 
 
-# %%
+# %% # 3Dプロットのアニメーションの作図
 
 # ディリクレ分布のパラメータとして利用する値を指定
 alpha_0_vals = np.arange(start=1.0, stop=10.1, step=0.1).round(decimals=1)
@@ -536,7 +539,7 @@ dens_max = np.ceil(
 dens_levels = np.linspace(dens_min, dens_max, num=10)
 
 # 三角座標上の等高線図を作成
-fig = plt.figure(figsize=(12, 10), facecolor='white') # 図の設定
+fig = plt.figure(figsize=(12, 12), facecolor='white') # 図の設定
 ax = fig.add_subplot(projection='3d') # 3D用の設定
 fig.suptitle(t='3D Ternary Plot', fontsize=20) # タイトル
     
@@ -577,7 +580,7 @@ def update(i):
     ax.contour(y_0_grid, y_1_grid, dens_vals.reshape(y_shape), 
                vmin=dens_min, vmax=dens_max, levels=dens_levels, offset=0.0) # 確率密度の等高線
     ax.plot_surface(y_0_grid, y_1_grid, dens_vals.reshape(y_shape), 
-                    cmap='viridis', alpha=0.6) # 確率密度の曲面
+                    cmap='viridis', alpha=0.8) # 確率密度の曲面
     ax.set_xticks(ticks=[0.0, 0.5, 1.0], labels='') # 2次元座標のx軸目盛
     ax.set_yticks(ticks=[0.0, 0.25*np.sqrt(3.0), 0.5*np.sqrt(3.0)], labels='') # 2次元座標のy軸目盛
     ax.set_zlabel('density') # z軸ラベル
@@ -586,14 +589,11 @@ def update(i):
     ax.set_title(label=param_text, loc='left') # パラメータラベル
 
 # gif画像を作成
-anim = FuncAnimation(fig=fig, func=update, frames=frame_num, interval=100)
+ani = FuncAnimation(fig=fig, func=update, frames=frame_num, interval=100)
 
 # gif画像を保存
-anim.save('../../figure/Python/ternary_3d_dens.gif')
+ani.save('../figure/Python/ternary_3d_dens.gif')
 
 
 # %%
 
-import os
-print(os.getcwd())
-# %%

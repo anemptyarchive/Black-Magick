@@ -73,7 +73,7 @@ kl_df <- tidyr::expand_grid(
     sample_prob = sample_prob_j[j] # 確率のサンプル
   ) |> 
   dplyr::ungroup() |> 
-  dplyr::arrange(kl) # 当て嵌まりが良い順に並べ替え
+  dplyr::arrange(kl, k) # 当て嵌まりが良い順に並べ替え
 kl_df
 
 # インデックスの組み合わせごとに確率分布のサンプルを作図

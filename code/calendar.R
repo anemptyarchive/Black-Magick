@@ -554,3 +554,426 @@ ggplot() +
 
 
 
+# 2つの日付の差から経過期間(n年mか月とl日)を求めたい --------------------------------------------------
+
+# 利用パッケージ
+library(tidyverse)
+library(lubridate)
+
+
+### ・月ごとの経過期間 -----
+
+# 基準日を指定
+date_from <- "2020-05-05" |> 
+  lubridate::as_date()
+
+# 年数を指定
+year_len <- 3
+
+
+# 基準日以降の月ごとに経過期間を計算
+month_df <- tibble::tibble(
+  # 1か月間隔の日付を作成
+  date = seq(
+    from = date_from |> 
+      lubridate::rollforward(roll_to_first = TRUE), # 基準日の翌月の初日
+    to = (date_from + lubridate::years(year_len)) |> 
+      lubridate::floor_date(unit = "month"), # 指定した年数後の基準日の月の初日
+    by = "month"
+  )
+) |> 
+  dplyr::mutate(
+    # 期間計算用の値を作成
+    date_day = date |> 
+      lubridate::day() |> 
+      as.numeric(), # 経過日の日にち
+    from_day = date_from |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の日にち
+    pre_last_day = date |> 
+      lubridate::rollback() |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の前月の末日
+    # 経過期間を計算
+    n = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "year") |> 
+      floor(), # 経過年数
+    m = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "month") |> 
+      floor() %% 12, # 経過月数 - 経過年数
+    l = dplyr::case_when(
+      from_day >= pre_last_day ~ 1, # 基準日の日にちが無い月の場合は「1にち」
+      from_day == 1 ~ 0, # 基準日が月初の場合は「0にち」
+      from_day <= pre_last_day ~ pre_last_day - from_day + 1 # 基準日の日にちが有る月の場合は「前月における基準日からの日数」
+    ), # 経過日数 - 経過年月数
+    days = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "day"), # 総経過日数
+    nml_label = paste0(n, "年", m, "か月", l, "日") # 経過期間ラベル
+  )
+month_df
+
+
+### ・日ごとの経過期間：ヒートマップ -----
+
+# 基準日を指定
+date_from <- "2020-05-15" |> 
+  lubridate::as_date()
+
+
+# 基準日以降の日ごとに経過期間を計算
+date_df <- tibble::tibble(
+  # 1日間隔の日付を作成
+  date = seq(
+    from = date_from , # 基準日
+    to = (date_from + lubridate::years(1)) |> 
+      lubridate::rollforward(), # 1年後の基準日の月の末日
+    by = "day"
+  )
+) |> 
+  dplyr::mutate(
+    # 期間計算用の値を作成
+    year = date |> 
+      lubridate::year() |> 
+      as.numeric(), # 経過日の年
+    month = date |> 
+      lubridate::month() |> 
+      as.numeric(), # 経過日の月
+    day = date |> 
+      lubridate::day() |> 
+      as.numeric(), # 経過日の日にち
+    from_day = date_from |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の日にち
+    pre_last_day = date |> 
+      lubridate::rollback() |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の前月の末日
+    # 経過期間を計算
+    n = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "year") |> 
+      floor(), # 経過年数
+    m = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "month") |> 
+      floor() %% 12, # 経過月数 - 経過年数
+    l = dplyr::case_when(
+      (day < from_day & pre_last_day >  from_day) ~ pre_last_day - from_day + day, # 前月の途中から
+      (day < from_day & pre_last_day <= from_day) ~ day, # 当月の頭から
+      day >= from_day ~ day - from_day # 当月の途中から
+    ), # 経過日数 - 経過年月数
+    days = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "day"), # 総経過日数
+    nml_label = paste0(n, "年", m, "か月", l, "日") # 経過期間ラベル
+  )
+date_df
+
+
+# ヒートマップ用に経過期間データを整形
+heatmap_df <- date_df |> 
+  dplyr::select(date, n, m, l, days, nml_label) |> 
+  dplyr::mutate(
+    year_month = date |> 
+      format(format = "%Y-%m") |> 
+      factor(), # 年月ラベル
+    day = date |> 
+      lubridate::day() # 日ラベル
+  )
+heatmap_df
+
+# 経過期間をヒートマップで可視化
+ggplot() + 
+  geom_tile(data = heatmap_df, 
+            mapping = aes(x = year_month, y = day, fill = l)) + # 日付セル
+  geom_tile(mapping = aes(x = format(date_from, format = "%Y-%m"), y = lubridate::day(date_from)), 
+            fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
+  geom_text(data = heatmap_df, 
+            mapping = aes(x = year_month, y = day, label = nml_label)) + # 経過期間ラベル
+  scale_y_reverse(breaks = 1:31) + # 日軸
+  scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション
+  theme(panel.grid.minor = element_blank()) + # 図の体裁
+  labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
+       fill = "日数の差", 
+       x = "年-月", y = "日")
+
+
+### ・日ごとの経過期間：カレンダー -----
+
+# 基準日を指定
+date_from <- "2020-05-15" |> 
+  lubridate::as_date()
+
+
+# 基準日以降の日ごとに経過期間を計算
+date_df <- tibble::tibble(
+  # 1日間隔の日付を作成
+  date = seq(
+    from = date_from |> 
+      lubridate::floor_date(unit = "month"), # 基準日の月の初日
+    to = (date_from + lubridate::years(1)) |> 
+      lubridate::rollforward(), # 1年後の基準日の月の末日
+    by = "day"
+  )
+) |> 
+  dplyr::mutate(
+    # 期間計算用の値を作成
+    year = date |> 
+      lubridate::year() |> 
+      as.numeric(), # 経過日の年
+    month = date |> 
+      lubridate::month() |> 
+      as.numeric(), # 経過日の月
+    day = date |> 
+      lubridate::day() |> 
+      as.numeric(), # 経過日の日にち
+    from_day = date_from |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の日にち
+    pre_last_day = date |> 
+      lubridate::rollback() |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の前月の末日
+    # 経過期間を計算
+    n = dplyr::if_else(
+      condition = date >= date_from, 
+      true = lubridate::interval(start = date_from, end = date) |> 
+        lubridate::time_length(unit = "year") |> 
+        floor(), 
+      false = NA_real_
+    ), # 経過年数
+    m = dplyr::if_else(
+      condition = date >= date_from, 
+      true = lubridate::interval(start = date_from, end = date) |> 
+        lubridate::time_length(unit = "month") |> 
+        floor() %% 12, 
+      false = NA_real_
+    ), # 経過月数 - 経過年数
+    l = dplyr::case_when(
+      date < date_from ~ NA_real_, # 基準日前の場合
+      (day < from_day & pre_last_day >  from_day) ~ pre_last_day - from_day + day, # 前月の途中から
+      (day < from_day & pre_last_day <= from_day) ~ day, # 当月の頭から
+      day >= from_day ~ day - from_day # 当月の途中から
+    ), # 経過日数 - 経過年月数
+    days = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "day"), # 総経過日数
+    nml_label = dplyr::if_else(
+      condition = date >= date_from, 
+      true = paste0(n, "年", m, "か月", l, "日"), 
+      false = NA_character_
+    ) # 経過期間ラベル
+  )
+date_df
+
+
+# カレンダー用に経過期間データを整形
+calendar_df <- date_df |> 
+  dplyr::select(date, year, month, day, l, days, nml_label) |> 
+  dplyr::mutate(
+    dow_idx   = lubridate::wday(date), # 曜日(列)インデックス
+    dow_label = lubridate::wday(date, label = TRUE) # 曜日ラベル
+  ) |> 
+  dplyr::group_by(year, month) |> # インデックスの作成用
+  dplyr::mutate(
+    cell_idx = dplyr::if_else(
+      condition = date >= date_from, 
+      true = dplyr::row_number() + head(dow_idx, n = 1) - 1, 
+      false = NA_real_
+    ), # セルインデックス
+    week_idx = dplyr::if_else(
+      condition = date >= date_from, 
+      true = (cell_idx - 1) %/% 7 + 1, 
+      false = NA_real_
+    ) # 週(行)インデックス
+  ) |> 
+  dplyr::ungroup()
+calendar_df
+
+# 基準日を格納
+date_from_df <- calendar_df |> 
+  dplyr::filter(date == date_from) # 基準日のデータを抽出
+date_from_df
+
+
+# ラベル用の関数を作成
+str_year <- function(string) {
+  paste0(string, "年")
+}
+str_month <- function(string) {
+  paste0(string, "月")
+}
+
+# 経過期間をカレンダー上のヒートマップで可視化
+ggplot() + 
+  geom_tile(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx, fill = l), 
+            color = "black", na.rm = TRUE) + # 日付セル
+  geom_tile(data = date_from_df, 
+            mapping = aes(x = dow_idx, y = week_idx), 
+            fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
+  geom_label(data = calendar_df, 
+             mapping = aes(x = dow_idx-0.5, y = week_idx-0.5, label = day), 
+             hjust = 0, vjust = 1, label.padding = unit(0.1, units = "line"), 
+             size = 2, na.rm = TRUE) + # 日付ラベル
+  geom_text(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx, label = nml_label), 
+            size = 2, vjust = 1, na.rm = TRUE) + # 経過日数ラベル
+  scale_x_continuous(breaks = 1:7, labels = lubridate::wday(1:7, label = TRUE)) + # 曜日軸
+  scale_y_reverse(breaks = 1:max(calendar_df[["week_idx"]], na.rm = TRUE)) + # 週軸
+  scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション
+  facet_wrap(year ~ month, labeller = labeller(year = str_year, month = str_month), scales = "free_x") + # 月ごとに分割
+  theme(panel.grid.minor = element_blank()) + # 図の体裁
+  labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
+       fill = "経過日数", 
+       x = "曜日", y = "週") # ラベル
+
+# 画像を保存
+#ggsave(filename = "calendar.png", plot = last_plot(), width = 20, height = 16, dpi = 200)
+
+
+### ・日ごとの事前・事後の経過期間 -----
+
+# 基準日を指定
+date_from <- "2020-05-30" |> 
+  lubridate::as_date()
+
+
+# 基準日以前・以降の日ごとに経過期間を計算
+date_df <- tibble::tibble(
+  # 1日間隔の日付を作成
+  date = seq(
+    from = (date_from - lubridate::years(1)) |> 
+      lubridate::rollback(roll_to_first = TRUE), # 1年前の基準日の前月の初日
+    to = (date_from + lubridate::days(40)) |> 
+      lubridate::rollforward(), # 基準日の40日後の月の末日
+    by = "day"
+  )
+) |> 
+  dplyr::mutate(
+    # 期間計算用の値を作成
+    year = date |> 
+      lubridate::year() |> 
+      as.numeric(), # 経過日の年
+    month = date |> 
+      lubridate::month() |> 
+      as.numeric(), # 経過日の月
+    day = date |> 
+      lubridate::day() |> 
+      as.numeric(), # 経過日の日にち
+    from_day = date_from |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の日にち
+    last_day = date |> 
+      lubridate::rollforward() |> 
+      lubridate::day() |> 
+      as.numeric(),# 基準日の月の末日
+    pre_last_day = date |> 
+      lubridate::rollback() |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の前月の末日
+    # 経過期間を計算
+    n = dplyr::case_when(
+      date >= date_from ~ lubridate::interval(start = date_from, end = date) |> 
+        lubridate::time_length(unit = "year") |> 
+        floor(), 
+      date < date_from ~ lubridate::interval(start = date, end = date_from) |> 
+        lubridate::time_length(unit = "year") |> 
+        floor() * (-1), 
+    ), # 経過年数
+    m = dplyr::case_when(
+      date >= date_from ~ lubridate::interval(start = date_from, end = date) |> 
+        lubridate::time_length(unit = "month") |> 
+        floor() %% 12, 
+      date < date_from ~ lubridate::interval(start = date, end = date_from) |> 
+        lubridate::time_length(unit = "month") |> 
+        floor() %% 12 * (-1)
+    ), # 経過月数 - 経過年数
+    l = dplyr::case_when(
+      (date >= date_from & day <  from_day & pre_last_day >  from_day) ~ pre_last_day - from_day + day, # 前月の途中から当月の途中まで
+      (date >= date_from & day <  from_day & pre_last_day <= from_day) ~ day, # 当月の頭から当月の途中まで
+      (date >= date_from & day >= from_day) ~ day - from_day, # 当月の途中から当月の途中まで
+      (date <  date_from & day >  from_day) ~ day - last_day - from_day, # 当月の途中から前月の途中まで
+      (date <  date_from & day <= from_day) ~ day - from_day # 前月の途中から前月の頭まで
+    ), # 経過日数 - 経過年月数
+    days = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "day"), # 総経過日数
+    nml_label = paste0(n, "年", m, "か月", l, "日") # 経過期間ラベル
+  )
+date_df
+
+
+# ヒートマップ用に経過期間データを整形
+heatmap_df <- date_df |> 
+  dplyr::select(date, n, m, l, days, nml_label) |> 
+  dplyr::mutate(
+    year_month = date |> 
+      format(format = "%Y-%m") |> 
+      factor(), # 年月ラベル
+    day = date |> 
+      lubridate::day() # 日ラベル
+  )
+heatmap_df
+
+# 経過期間をヒートマップで可視化
+ggplot() + 
+  geom_tile(data = heatmap_df, 
+            mapping = aes(x = year_month, y = day, fill = l)) + # 日付セル
+  geom_tile(mapping = aes(x = format(date_from, format = "%Y-%m"), y = lubridate::day(date_from)), 
+            fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
+  geom_text(data = heatmap_df, 
+            mapping = aes(x = year_month, y = day, label = nml_label)) + # 経過期間ラベル
+  scale_y_reverse(breaks = 1:31) + # 日軸
+  scale_fill_gradient2(low = "hotpink", mid = "white" , high = "#00A968") + # 経過日数グラデーション:(正負)
+  theme(panel.grid.minor = element_blank()) + # 図の体裁
+  labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
+       fill = "日数の差", 
+       x = "年-月", y = "日")
+
+
+# カレンダー用に経過期間データを整形
+calendar_df <- date_df |> 
+  dplyr::select(date, year, month, day, l, days, nml_label) |> 
+  dplyr::mutate(
+    dow_idx   = lubridate::wday(date), # 曜日(列)インデックス
+    dow_label = lubridate::wday(date, label = TRUE) # 曜日ラベル
+  ) |> 
+  dplyr::group_by(year, month) |> # インデックスの作成用
+  dplyr::mutate(
+    cell_idx = dplyr::row_number() + head(dow_idx, n = 1) - 1, # セルインデックス
+    week_idx = (cell_idx - 1) %/% 7 + 1 # 週(行)インデックス
+  ) |> 
+  dplyr::ungroup()
+calendar_df
+
+# 基準日を格納
+date_from_df <- calendar_df |> 
+  dplyr::filter(date == date_from) # 基準日のデータを抽出
+date_from_df
+
+
+# 「日ごとの経過期間：カレンダー」のコードで、ラベル用の関数を作成
+str_year
+str_month
+
+# 経過期間をカレンダー上のヒートマップで可視化
+ggplot() + 
+  geom_tile(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx, fill = l), 
+            color = "black", na.rm = TRUE) + # 日付セル
+  geom_tile(data = date_from_df, 
+            mapping = aes(x = dow_idx, y = week_idx), 
+            fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
+  geom_label(data = calendar_df, 
+             mapping = aes(x = dow_idx-0.5, y = week_idx-0.5, label = day), # stringr::str_pad(day, side = "left", width = 2, pad = " ")
+             hjust = 0, vjust = 1, label.padding = unit(0.1, units = "line"), 
+             size = 2, na.rm = TRUE) + # 日付ラベル
+  geom_text(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx, label = nml_label), 
+            size = 2, vjust = 1, na.rm = TRUE) + # 経過日数ラベル
+  scale_x_continuous(breaks = 1:7, labels = lubridate::wday(1:7, label = TRUE)) + # 曜日軸
+  scale_y_reverse(breaks = 1:max(calendar_df[["week_idx"]], na.rm = TRUE)) + # 週軸
+  scale_fill_gradient2(low = "hotpink", mid = "white" , high = "#00A968") + # 経過日数のグラデーション
+  facet_wrap(year ~ month, labeller = labeller(year = str_year, month = str_month), scales = "free_x") + # 月ごとに分割
+  theme(panel.grid.minor = element_blank()) + # 図の体裁
+  labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
+       fill = "経過日数", 
+       x = "曜日", y = "週") # ラベル
+
+

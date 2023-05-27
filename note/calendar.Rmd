@@ -1,5 +1,6 @@
 ---
 title: "カレンダーの作図"
+author: "@anemptyarchive\\thanks{\\url{https://www.anarchive-beta.com/}}"
 date: "`r format(Sys.time(), '%Y-%m-%d %H:%M:%S')`"
 output:
   html_document:
@@ -11,6 +12,17 @@ output:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
+
+----
+
+【編集履歴】
+
+- 2023.05.27：「カレンダーを作成したい」を作成
+
+----
+
+\ 
+
 
 # ggplot2でカレンダーを作成したい
 
@@ -69,7 +81,7 @@ ggplot() +
             color = "black", alpha = 0) + # セル
   geom_text(data = index_df, 
             mapping = aes(x = dow_idx, y = week_idx, label = cell_idx), 
-            size = 10) + # セルインデックスラベル
+            size = 5) + # セルインデックスラベル
   scale_x_continuous(breaks = 1:max(index_df[["dow_idx"]])) + # 行インデックス
   scale_y_reverse(breaks = 1:max(index_df[["week_idx"]])) + # 列インデックス
   coord_fixed(ratio = 1) + # アスペクト比
@@ -80,7 +92,7 @@ ggplot() +
 ```
 
 　6×7個の日付セルでカレンダーを表現できる。各セルの交点は、曜日番号±0.5、週番号±0.5である。\
-　交点を作らない場合は、`geom_tile()`の`width`引数で横サイズ、`height`引数で縦サイズを調整できる。\
+　交点を作らない(セル間を空ける)場合は、`geom_tile()`の`width`引数で横サイズ、`height`引数で縦サイズを調整できる。\
 
 　セルインデックスは、横縦の順に割り当てておき、行インデックス(第何週か)の計算に用いる。\
 \
@@ -128,7 +140,7 @@ date_df
 
 　年を`year`、月を`month`として整数を指定する。\
 
-　指定した月の月初から月末までの日付を作成して、データフレームに格納する。月初の日付を表す文字列`yyyy-mm-01`を作成して、`as_date()`で日付型に変換して用いる。さらに、`rollforward()`で月末の日付が得られる。\
+　指定した月の初日から最終日までの日付を`seq(by = "day")`で作成して、データフレームに格納する。月初の日付を表す文字列`yyyy-mm-01`を作成して、`as_date()`で日付型に変換して用いる。さらに、`rollforward()`で月末の日付が得られる。\
 　日付ごとに、`day()`で日にち列、`wday()`で曜日番号列を作成する。また確認用に、`wday()`の`label`引数を`TRUE`にして、曜日ラベル列を作成する。\
 　「月初の曜日番号-1」に各日付の「日にち」を加えるとセル番号が得られる。\
 　「セル番号-1」を「7で割った余り」に「1」を加えると週番号が得られる。商余は`%/%`で計算できる。\
@@ -217,7 +229,7 @@ holiday_df <- tmp_holiday_df |>
 holiday_df
 ```
 
-　祝日データから、祝日が日曜日の場合は取り出して、日付データを翌日の値に書き換える。ただし、憲法記念日とみどりの日の場合は、翌日も休日であるため、それぞれ3日後と2日後の値に書き換える。(翌月の日付になる場合は取り除く必要があるが、日本の場合は無いので省略。)\
+　祝日データから、祝日が日曜日の場合は取り出して、翌日の値に書き換える。ただし、憲法記念日とみどりの日の場合は、翌日も休日であるため、それぞれ3日後と2日後の値に書き換える。(翌月の日付になる場合は取り除く必要があるが、日本の場合は無いので省略。)\
 　祝日データを`bind_rows()`で結合して、日付データと重複する(`date`列以外の)列を取り除く。\
 
 　日付データに休日データを追加する。
@@ -327,7 +339,7 @@ calendar_color
 　`geom_text()`の`color`引数で、日付カテゴリごとに日にちラベルの文字色を変更して色分けする。カテゴリごとの色は`scale_txet_manual()`で設定できる。\
 \
 
-　以上で、カレンダーを作成できた。次は利用例として、予定を表示する。\
+　以上で、カレンダーを作成できた。次は利用例として、カレンダー上に予定を表示する。\
 \
 
 
@@ -494,8 +506,8 @@ holiday_df
 
 　「ひと月のカレンダー」のときと同様にして、祝日の日付と名前をデータフレームに格納する。また、振替休日のデータフレームを作成する。\
 
-　グラフサイズなどによっては、祝日名が日付ラベルに重なって表示されることがある。\
-　そこでこの例では、文字数の閾値を`threshold`として、祝日名の文字数によってラベルサイズカテゴリを設定する。\
+　グラフサイズなどによっては、祝日名が日付ラベルに重なって表示される。\
+　そこで、文字数の閾値を`threshold`として、祝日名の文字数によってラベルサイズカテゴリを設定する。\
 
 　日付データに休日データを追加する。
 
@@ -531,7 +543,7 @@ str_month(month)
 ```
 
 　月を示す整数の文字列を受け取り、`n月`の形(または英語名)にして返す関数を定義する。\
-　月名列を作成しておき、その列をグラフの分割に使ってもよい。\
+　または、月名列を用意してグラフの分割に使うと、月名がファセットラベルに表示される。\
 
 　セルを塗りつぶして休日を示すカレンダーを作成する。
 
@@ -629,13 +641,13 @@ calendar_color
 　これまでと同様にして作図する。\
 \
 
-　以上で、カレンダーを作成できた。次は、利用例として予定を表示する。\
+　以上で、カレンダーを作成できた。次は利用例として、カレンダー上に予定を表示する。\
 \
 
 
 ### 利用例
 
-　スケジュールデータを作成する。
+　誕生日データを作成する。
 
 <details><summary>・コード(クリックで展開)</summary>
 
@@ -655,8 +667,7 @@ join_df <- readr::read_csv(
     gradDate = readr::col_date(format = "%Y/%m/%d")
   )
 ) |> 
-  dplyr::arrange(joinDate, memberID, groupID) # 昇順に並び替え
-
+  dplyr::arrange(joinDate, memberID, groupID)
 
 # メンバー一覧を読み込み
 member_df <- readr::read_csv(
@@ -671,11 +682,13 @@ member_df <- readr::read_csv(
     birthDate = readr::col_date(format = "%Y/%m/%d")
   )
 ) |> 
-  dplyr::arrange(memberID) # 昇順に並べ替え
+  dplyr::select(memberID, memberName, birthDate) |> 
+  dplyr::distinct() |> 
+  dplyr::arrange(memberID)
 join_df; member_df
 ```
 
-　グループ加入情報を`join_df`、メンバー情報を`member_df`としてそれぞれ読み込む。詳しくは「ハロプロチャートレース」を参照のこと。\
+　グループ加入情報を`join_df`、メンバー情報を`member_df`としてそれぞれ読み込む。詳しくは「ハロプロチャートレースシリーズ」を参照のこと。\
 
 　誕生日データを作成する。
 
@@ -686,17 +699,12 @@ group_id <- 1
 # 予定の暦データを作成
 schedule_df <- join_df |> 
   dplyr::filter(groupID == group_id) |> # 指定グループの加入情報を抽出
-  dplyr::left_join(
-    member_df |> 
-      dplyr::select(memberID, memberName, birthDate) |> 
-      dplyr::distinct(), # 重複を削除
-    by = "memberID"
-  ) |> # 誕生日情報を結合
+  dplyr::left_join(member_df, by = "memberID") |> # 誕生日情報を結合
   dplyr::mutate(
-    month = lubridate::month(birthDate), 
-    day   = lubridate::day(birthDate), 
+    month = lubridate::month(birthDate), # 誕生月
+    day   = lubridate::day(birthDate),   # 誕生日(日にち)
     date  = paste0(year, "-", as.character(month), "-", as.character(day)) |> 
-      lubridate::as_date(), 
+      lubridate::as_date(), # 指定した年の誕生日
     symbol = "🎂" # 記号を指定
   ) |> 
   dplyr::select(date, symbol, memberName, month) |> 
@@ -709,8 +717,8 @@ schedule_df <- join_df |>
 schedule_df
 ```
 
-　グループIDを指定して、`join_df`から所属メンバーのIDを抽出する。メンバーIDに応じて、`member_df`から誕生日情報を結合する。\
-　各誕生日に応じて、`calendar_df`から曜日番号と週番号を結合する。\
+　グループIDを指定して、`join_df`から所属メンバーのIDを抽出する。メンバーIDに応じて、`member_df`から誕生日情報(生年月日)を結合する。\
+　指定した年の誕生日(月日)を作成して、`calendar_df`から対応する曜日番号と週番号を結合する。\
 
 </details>
 
@@ -727,7 +735,522 @@ calendar_fill +
             size = 5, vjust = 0) # 予定ラベル
 ```
 
-　作成したグラフ上に予定を表すマークとラベルを描画する。\
+　「ひと月のカレンダー」のときと同様に、予定を表すマークとラベルを描画する。\
+\
+
+
+## 任意の期間のカレンダー
+
+　最後は、期間を指定して(1日から始まらない場合の)カレンダーを作成する。\
+\
+
+
+### 基本形
+
+　作成するカレンダーの期間を指定して、日付データを作成する。
+
+```{r}
+# 開始日を指定
+date_from <- "2021-05-05" |> 
+  lubridate::as_date()
+
+# 終了日を指定
+date_to <- "2023-05-04" |> 
+  lubridate::as_date()
+
+# 任意期間の暦データを作成
+date_df <- tibble::tibble(
+  # 1日間隔の日付を作成
+  date = seq(
+    from = date_from |> 
+      lubridate::floor_date(unit = "month"), # 開始日の月の初日
+    to   = date_to, # 終了日
+    by = "day"
+  )
+) |> 
+  dplyr::mutate(
+    year  = lubridate::year(date),  # 年ラベル
+    month = lubridate::month(date), # 月ラベル
+    day   = lubridate::day(date),   # 日ラベル
+    # 作図用の値を作成
+    dow_idx   = lubridate::wday(date), # 曜日番号(列インデックス)
+    dow_label = lubridate::wday(date, label = TRUE) # 曜日ラベル
+  ) |> 
+  dplyr::group_by(year, month) |> # インデックスの作成用
+  dplyr::mutate(
+    cell_idx = dplyr::if_else(
+      condition = date >= date_from, # 指定期間の場合
+      true  = day + head(dow_idx, n = 1) - 1, 
+      false = NA_real_
+    ), # セルインデックス
+    week_idx = dplyr::if_else(
+      condition = date >= date_from, # 指定期間の場合
+      true  = (cell_idx - 1) %/% 7 + 1, 
+      false = NA_real_
+    ) # 週番号(行インデックス)
+  ) |> 
+  dplyr::ungroup() |> 
+  dplyr::filter(date >= date_from) # 期間外のデータを除去
+date_df
+```
+
+　期間の開始日を`date_from`、終了日を`date_to`として日付型の値を指定する。\
+
+　開始日の月初から終了日までの日付を作成して、データフレームに格納する。期間前の日付は、週番号の計算に用いる。\
+　「ひと年のカレンダー」のときと同様に、年列・月列と曜日番号列・週番号列を作成する。ただし、開始日以前のデータについては、インデックス(数値型の)欠損値にするか、インデックスの計算後に取り除く。この例では、両方の処理を行っている。\
+
+　月ごとのカレンダーの原型を作成する。
+
+```{r, fig.width=12, fig.height=12, dpi=100}
+# 横軸ラベルを作成
+dow_label_vec <- lubridate::wday(1:7, label = TRUE) # 日本語名
+#dow_label_vec <- lubridate::wday(1:7, label = TRUE, abbr = TRUE, locale = "en_US") # 英語名の省略形
+
+# タイトル用の文字列を作成
+title_label <- paste0(
+  format(date_from, format = "%Y年%m月%d日"), "から", 
+  format(date_to, format = "%Y年%m月%d日"), "までのカレンダー"
+)
+
+# 任意期間のカレンダーを作図:(原型)
+ggplot() + 
+  geom_tile(data = date_df, 
+            mapping = aes(x = dow_idx, y = week_idx), 
+            fill = "white", color = "black") + # 日付セル
+  geom_text(data = date_df, 
+            mapping = aes(x = dow_idx, y = week_idx, label = day), 
+            size = 5) + # 日付ラベル
+  scale_x_continuous(breaks = 1:7, labels = dow_label_vec) + # 曜日軸
+  scale_y_reverse(breaks = 1:6) + # 週軸
+  coord_fixed(ratio = 1) + # アスペクト比
+  facet_wrap(year ~ month, labeller = "label_both") + # 月ごとに分割
+  #facet_grid(year ~ month, labeller = "label_both", switch = "y") + # 年・月ごとに分割
+  theme(panel.grid.minor = element_blank()) + # 図の体裁
+  labs(title = title_label, 
+       x = "曜日", y = "週")
+```
+
+```{r, echo=FALSE, fig.width=24, fig.height=6, dpi=100}
+### 資料作成用:(再掲)
+
+# 任意期間のカレンダーを作図:(原型)
+ggplot() + 
+  geom_tile(data = date_df, 
+            mapping = aes(x = dow_idx, y = week_idx), 
+            fill = "white", color = "black") + # 日付セル
+  geom_text(data = date_df, 
+            mapping = aes(x = dow_idx, y = week_idx, label = day), 
+            size = 5) + # 日付ラベル
+  scale_x_continuous(breaks = 1:7, labels = dow_label_vec) + # 曜日軸
+  scale_y_reverse(breaks = 1:6) + # 週軸
+  coord_fixed(ratio = 1) + # アスペクト比
+  #facet_wrap(year ~ month, labeller = "label_both") + # 月ごとに分割
+  facet_grid(year ~ month, labeller = "label_both", switch = "y") + # 年・月ごとに分割
+  theme(panel.grid.minor = element_blank()) + # 図の体裁
+  labs(title = title_label, 
+       x = "曜日", y = "週")
+```
+
+　`facet_wrap()`で月ごとに、または`facet_grid()`で年と月ごとに分割して描画する。\
+\
+
+　続いて、祝日とカレンダーの体裁を設定する。\
+\
+
+
+### 装飾
+
+　祝日データを取得する。
+
+```{r}
+# 祝日情報を取得
+holiday_vec <- zipangu::jholiday(
+  year = lubridate::year(date_from):lubridate::year(date_to), lang = "jp"
+) |> 
+  unlist() |> 
+  lubridate::as_date()
+head(holiday_vec)
+```
+
+　`jholiday()`の`year`引数に期間内の年を指定する。複数年を指定した場合は、祝日名の後に通し番号が付く。\
+
+　祝日データを格納する。
+
+```{r}
+# 祝日の暦データを作成
+tmp_holiday_df <- tibble::tibble(
+  date = holiday_vec, # 祝日の日付
+  holiday_label = holiday_vec |> 
+    names() |> 
+    stringr::str_remove(pattern = "\\d"), # 祝日ラベル
+  dow_idx = lubridate::wday(date) # 振替休日の作成用
+) |> 
+  dplyr::filter(dplyr::between(date, left = date_from, right = date_to)) |>  # 期間内のデータを抽出
+  dplyr::arrange(date)
+tmp_holiday_df
+```
+
+　`str_remove()`で通し番号を取り除いて、祝日名を格納する。\
+　指定期間のデータを`between()`で抽出する。\
+
+　「ひと月のカレンダー」のときのコードで、振替休日を追加して、カレンダーの作図用のデータを作成する。
+
+```{r, echo=FALSE}
+### 資料作成用:(再掲)
+
+# 振替休日の暦データを作成
+holiday_df <- tmp_holiday_df |> 
+  dplyr::filter(dow_idx == 1) |> # 日曜日の祝日を抽出
+  dplyr::mutate(
+    date = dplyr::case_when(
+      holiday_label == "憲法記念日" ~ date + lubridate::days(3), 
+      holiday_label == "みどりの日" ~ date + lubridate::days(2), 
+      TRUE ~ date + lubridate::days(1)
+    ), # 日にち
+    holiday_label = "振替休日", # 祝日名
+    dow_idx = lubridate::wday(date) # 祝日データの結合用
+  ) |> 
+  dplyr::bind_rows(tmp_holiday_df) |> # 祝日の暦データを結合
+  dplyr::select(date, holiday_label, holiday_label) |> # 日付データの結合用
+  dplyr::arrange(date)
+
+# 装飾用の暦データを作成
+calendar_df <- date_df |> 
+  dplyr::left_join(holiday_df, by = "date") |> # 祝日データを結合
+  dplyr::mutate(
+    day_type = dplyr::case_when(
+      !is.na(holiday_label) ~ "holiday", 
+      dow_label == "日" ~ "holiday", #(または) dow_idx == 7 ~ "holiday", 
+      dow_label == "土" ~ "weekend", #(または) dow_idx == 1 ~ "weekend", 
+      TRUE ~ "weekday"
+    ) # 日付カテゴリ
+  )
+```
+
+```{r}
+# 確認
+calendar_df
+```
+
+\ 
+
+　ファセットラベルの設定用の関数を作成する。
+
+```{r}
+# ラベル用の関数を作成
+str_year <- function(string) {
+  paste0(string, "年")
+}
+str_month <- function(string) {
+  paste0(string, "月")
+}
+str_year(lubridate::year(date_from)); str_month(lubridate::month(date_from))
+```
+
+　年を受け取り`m年`を返す関数と、月を受け取り`n月`を返す関数を定義する。英語名の月を表示する場合は「ひと年のカレンダー」のときの関数を使う。\
+
+　セルを塗りつぶして休日を示すカレンダーを作成する。
+
+```{r, fig.width=40, fig.height=10, dpi=100}
+# 任意期間のカレンダーを作図:(休日のラベル色を変更)
+calendar_fill <- ggplot() + 
+  geom_tile(data = calendar_df,
+            mapping = aes(x = dow_idx, y = week_idx),
+            fill = "white", color = "black") + # 平日セル
+  geom_tile(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx, fill = day_type), 
+            color = "black", alpha = 0.1) + # 休日セル
+  geom_text(data = calendar_df, 
+            mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day), 
+            size = 3, hjust = 0, vjust = 1) + # 日付ラベル
+  scale_x_continuous(breaks = 1:7, labels = dow_label_vec) + # 曜日軸
+  scale_y_reverse(breaks = 1:6) + # 週軸
+  scale_fill_manual(breaks = c("weekday", "holiday", "weekend"), 
+                     values = c("white", "red", "blue")) + # 休日用塗りつぶし色
+  facet_grid(year ~ month, labeller = labeller(year = str_year, month = str_month), switch = "y") + # 年・月ごとに分割
+  coord_fixed(ratio = 1, expand = FALSE) + # 描画領域
+  theme(
+    axis.title = element_blank(), # 軸ラベル
+    axis.text.x = element_text(size = 10), # 横軸目盛ラベル
+    axis.text.y = element_blank(), # 縦軸目盛ラベル
+    axis.ticks = element_blank(), # 軸目盛指示線
+    #panel.grid.major = element_blank(), # 主グリッド線
+    panel.grid.minor = element_blank(), # 副グリッド線
+    panel.border = element_rect(fill = NA), # グラフ領域の枠線
+    #panel.background = element_blank(), # グラフ領域の背景
+    strip.text = element_text(size = 15, face = "bold"), # ファセットラベルの文字
+    strip.background = element_blank(), # ファセットラベル領域の背景
+    strip.placement = "outside", # ファセットラベルの位置
+    legend.position = "none" # 凡例の位置
+  ) + # 図の体裁
+  labs(x = "曜日", y = "週")
+calendar_fill
+```
+
+　これまでと同様にして作図する。\
+
+　日付の文字色を変更して休日を示すカレンダーを作成する。
+
+```{r, fig.width=40, fig.height=10, dpi=100}
+# 任意期間のカレンダーを作図:(休日のラベル色を変更)
+calendar_color <- ggplot() + 
+  geom_tile(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx), 
+            fill = "white", color = "black") + # 日付セル
+  geom_text(data = calendar_df, 
+            mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day, color = day_type), 
+            size = 3, hjust = 0, vjust = 1) + # 日付ラベル
+  scale_x_continuous(breaks = 1:7, labels = dow_label_vec) + # 曜日軸
+  scale_y_reverse(breaks = 1:6) + # 週軸
+  scale_color_manual(breaks = c("weekday", "holiday", "weekend"), 
+                     values = c("black", "red", "blue")) + # 休日用文字色
+  facet_grid(year ~ month, labeller = labeller(year = str_year, month = str_month), switch = "y") + # 年・月ごとに分割
+  coord_fixed(ratio = 1, expand = FALSE) + # 描画領域
+  theme(
+    axis.title = element_blank(), # 軸ラベル
+    axis.text.x = element_text(size = 10), # 横軸目盛ラベル
+    axis.text.y = element_blank(), # 縦軸目盛ラベル
+    axis.ticks = element_blank(), # 軸目盛指示線
+    #panel.grid.major = element_blank(), # 主グリッド線
+    panel.grid.minor = element_blank(), # 副グリッド線
+    panel.border = element_rect(fill = NA), # グラフ領域の枠線
+    #panel.background = element_blank(), # グラフ領域の背景
+    strip.text = element_text(size = 15, face = "bold"), # ファセットラベルの文字
+    strip.background = element_blank(), # ファセットラベル領域の背景
+    strip.placement = "outside", # ファセットラベルの位置
+    legend.position = "none" # 凡例の位置
+  ) + # 図の体裁
+  labs(x = "曜日", y = "週")
+calendar_color
+```
+
+\ 
+
+　以上で、カレンダーを作成できた。次は利用例として、カレンダー上にヒートマップを表示する。\
+\
+
+
+### 利用例
+
+　ブログ記事の投稿日データを作成する。\
+
+<details><summary>・コード(クリックで展開)</summary>
+
+　記事URLデータを読み込む。
+
+```{r}
+# URLデータを読み込み
+url_vec <- readRDS(file = "../data/url.rds")
+head(url_vec)
+```
+
+　詳しくは「登山本シリーズの6章」を参照のこと。\
+
+　投稿日データを作成する。
+
+```{r}
+# ブログのURLを指定
+blog_url <- "https://www.anarchive-beta.com/"
+
+# 投稿日を抽出
+date_vec <- url_vec |> 
+  stringr::str_remove(pattern = paste0(blog_url, "entry/")) |> # 日時を示す文字列を抽出
+  lubridate::as_datetime(tz = "Asia/Tokyo") |> # タイムゾーンを設定
+  lubridate::as_date() |> 
+  sort()
+head(date_vec)
+```
+
+　記事URLからベースとなるブログURLなどの文字列を取り除き、投稿時間を示す文字列を作成する。\
+　`as_datetime()`で日時型に変換してタイムゾーンを設定して、`as_date()`で日付型に変換する。\
+
+　カレンダーの期間を設定する。
+
+```{r}
+# 期間を設定
+date_from <- min(date_vec)
+#date_to   <- max(date_vec)
+date_to   <- lubridate::today()
+date_from; date_to
+```
+
+　最初の投稿日を`date_from`、最新の投稿日または現在の日付を`date_to`とする。\
+
+　「基本形」と「装飾」のときのコードで、カレンダーの作図用のデータを作成する。
+
+```{r, echo=FALSE}
+### 資料作成用:(再掲)
+
+# 任意期間の暦データを作成
+date_df <- tibble::tibble(
+  # 1日間隔の日付を作成
+  date = seq(
+    from = date_from |> 
+      lubridate::floor_date(unit = "month"), # 開始日の月の初日
+    to   = date_to, # 終了日
+    by = "day"
+  )
+) |> 
+  dplyr::mutate(
+    year  = lubridate::year(date),  # 年ラベル
+    month = lubridate::month(date), # 月ラベル
+    day   = lubridate::day(date),   # 日ラベル
+    # 作図用の値を作成
+    dow_idx   = lubridate::wday(date), # 曜日番号(列インデックス)
+    dow_label = lubridate::wday(date, label = TRUE) # 曜日ラベル
+  ) |> 
+  dplyr::group_by(year, month) |> # インデックスの作成用
+  dplyr::mutate(
+    cell_idx = dplyr::if_else(
+      condition = date >= date_from, # 指定期間の場合
+      true  = day + head(dow_idx, n = 1) - 1, 
+      false = NA_real_
+    ), # セルインデックス
+    week_idx = dplyr::if_else(
+      condition = date >= date_from, # 指定期間の場合
+      true  = (cell_idx - 1) %/% 7 + 1, 
+      false = NA_real_
+    ) # 週番号(行インデックス)
+  ) |> 
+  dplyr::ungroup() |> 
+  dplyr::filter(date >= date_from) # 期間外のデータを除去
+
+# 祝日情報を取得
+holiday_vec <- zipangu::jholiday(
+  year = lubridate::year(date_from):lubridate::year(date_to), lang = "jp"
+) |> 
+  unlist() |> 
+  lubridate::as_date()
+
+# 祝日の暦データを作成
+tmp_holiday_df <- tibble::tibble(
+  date = holiday_vec, # 祝日の日付
+  holiday_label = holiday_vec |> 
+    names() |> 
+    stringr::str_remove(pattern = "\\d"), # 祝日ラベル
+  dow_idx = lubridate::wday(date) # 振替休日の作成用
+) |> 
+  dplyr::filter(dplyr::between(date, left = date_from, right = date_to)) |>  # 期間内のデータを抽出
+  dplyr::arrange(date)
+
+# 振替休日の暦データを作成
+holiday_df <- tmp_holiday_df |> 
+  dplyr::filter(dow_idx == 1) |> # 日曜日の祝日を抽出
+  dplyr::mutate(
+    date = dplyr::case_when(
+      holiday_label == "憲法記念日" ~ date + lubridate::days(3), 
+      holiday_label == "みどりの日" ~ date + lubridate::days(2), 
+      TRUE ~ date + lubridate::days(1)
+    ), # 日にち
+    holiday_label = "振替休日", # 祝日名
+    dow_idx = lubridate::wday(date) # 祝日データの結合用
+  ) |> 
+  dplyr::bind_rows(tmp_holiday_df) |> # 祝日の暦データを結合
+  dplyr::select(date, holiday_label, holiday_label) |> # 日付データの結合用
+  dplyr::arrange(date)
+
+# 装飾用の暦データを作成
+calendar_df <- date_df |> 
+  dplyr::left_join(holiday_df, by = "date") |> # 祝日データを結合
+  dplyr::mutate(
+    day_type = dplyr::case_when(
+      !is.na(holiday_label) ~ "holiday", 
+      dow_label == "日" ~ "holiday", #(または) dow_idx == 7 ~ "holiday", 
+      dow_label == "土" ~ "weekend", #(または) dow_idx == 1 ~ "weekend", 
+      TRUE ~ "weekday"
+    ) # 日付カテゴリ
+  )
+```
+
+```{r}
+# 確認
+calendar_df
+```
+
+\ 
+
+　記事の投稿数を集計する。
+
+```{r}
+# 記事投稿数を集計
+post_df <- tibble::tibble(
+  date = date_vec
+) |> 
+  dplyr::count(date, name = "post") |> # 投稿数をカウント |> 
+  dplyr::left_join(
+    calendar_df |> 
+      dplyr::select(date, year, month, dow_idx, week_idx), 
+    by = "date"
+  ) |> # 作図用の値を結合
+  dplyr::arrange(date)
+post_df
+```
+
+　重複する日付を`count()`でカウントして投稿数とする。\
+　投稿日に応じて、`calendar_df`から曜日番号と週番号を結合する。\
+
+</details>
+
+　記事投稿数のヒートマップを作成する。
+
+```{r, fig.width=40, fig.height=20, dpi=100}
+# 横軸ラベルを作成
+dow_label_vec <- lubridate::wday(1:7, label = TRUE) # 日本語名
+
+# タイトル用の文字列を作成
+title_label <- paste0(
+  format(date_from, format = "%Y年%m月%d日"), "から", 
+  format(date_to, format = "%Y年%m月%d日"), "のブログ記事投稿数"
+)
+
+# 任意期間のカレンダーを作図:(休日のラベル色を変更)
+ggplot() + 
+  geom_tile(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx), 
+            fill = "white", color = "black") + # 日付セル
+  geom_tile(data = post_df, 
+            mapping = aes(x = dow_idx, y = week_idx, fill = post), 
+            color = "black") + # 投稿数ヒートマップ
+  geom_text(data = post_df, 
+            mapping = aes(x = dow_idx, y = week_idx, label = post), 
+            size = 5) + # 投稿数ラベル
+  geom_label(data = calendar_df, 
+             mapping = aes(x = dow_idx-0.5, y = week_idx-0.5, 
+                           label = stringr::str_pad(day, side = "left", width = 2, pad = " "), color = day_type), 
+             size = 3.5, hjust = 0, vjust = 1, label.padding = unit(0.1, units = "line"), 
+             na.rm = TRUE, show.legend = FALSE) + # 日付ラベル
+  scale_x_continuous(breaks = 1:7, labels = dow_label_vec) + # 曜日軸
+  scale_y_reverse(breaks = 1:6) + # 週軸
+  scale_color_manual(breaks = c("weekday", "holiday", "weekend"), 
+                     values = c("black", "red", "blue")) + # 休日用文字色
+  scale_fill_gradient2(low = "gray", mid = "white", high = "green") + # 投稿数グラデーション
+  facet_grid(year ~ month, labeller = labeller(year = str_year, month = str_month), switch = "y") + # 年・月ごとに分割
+  coord_fixed(ratio = 1, expand = FALSE) + # 描画領域
+  theme(
+    axis.title = element_blank(), # 軸ラベル
+    axis.text.x = element_text(size = 30), # 横軸目盛ラベル
+    axis.text.y = element_blank(), # 縦軸目盛ラベル
+    axis.ticks = element_blank(), # 軸目盛指示線
+    #panel.grid.major = element_blank(), # 主グリッド線
+    panel.grid.minor = element_blank(), # 副グリッド線
+    panel.border = element_rect(fill = NA), # グラフ領域の枠線
+    #panel.background = element_blank(), # グラフ領域の背景
+    plot.title = element_text(size = 50, face = "bold", hjust = 0.5), # タイトル
+    plot.subtitle = element_text(size = 30, face = "bold", hjust = 1), # サブタイトル
+    strip.text = element_text(size = 30, face = "bold"), # ファセットラベルの文字
+    strip.background = element_blank(), # ファセットラベル領域の背景
+    strip.placement = "outside" # ファセットラベルの位置
+  ) + # 図の体裁
+  labs(title = title_label, 
+       subtitle = paste0("総記事数:", sum(post_df[["post"]])), 
+       fill = "投稿数", 
+       x = "曜日", y = "週")
+```
+
+　カレンダーのグラフ上に、`geom_tile()`で投稿数に応じて色付けするヒートマップを描画する。\
+\
+
+　この記事では、カレンダーを作成した。\
 \
 
 

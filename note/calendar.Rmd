@@ -606,8 +606,8 @@ calendar_color <- ggplot() +
             mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day, color = day_type), 
             size = 10, hjust = 0, vjust = 1) + # 日付ラベル
   geom_text(data = calendar_df, 
-            mapping = aes(x = dow_idx+0.45, y = week_idx-0.4, label = holiday_label), 
-            size = 4, color = "red", hjust = 1, vjust = 1, na.rm = TRUE) + # 祝日ラベル
+            mapping = aes(x = dow_idx+0.45, y = week_idx-0.4, label = holiday_label, size = label_size), 
+            color = "red", hjust = 1, vjust = 1, na.rm = TRUE) + # 祝日ラベル
   scale_x_continuous(breaks = 1:7, labels = NULL, 
                      sec.axis = dup_axis(trans = ~., labels = dow_label_vec)) + # 曜日軸
   scale_y_reverse(breaks = 1:6) + # 週軸
@@ -1039,8 +1039,11 @@ calendar_color
 　記事URLデータを読み込む。
 
 ```{r}
+# ファイルパスを指定
+file_path <- "../data/url.rds"
+
 # URLデータを読み込み
-url_vec <- readRDS(file = "../data/url.rds")
+url_vec <- readRDS(file = file_path)
 head(url_vec)
 ```
 
@@ -1203,7 +1206,7 @@ title_label <- paste0(
   format(date_to, format = "%Y年%m月%d日"), "のブログ記事投稿数"
 )
 
-# 任意期間のカレンダーを作図:(休日のラベル色を変更)
+# 投稿数のヒートマップ
 ggplot() + 
   geom_tile(data = calendar_df, 
             mapping = aes(x = dow_idx, y = week_idx), 

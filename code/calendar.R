@@ -21,6 +21,13 @@ year <- 2024
 # 月を指定
 month <- 2
 
+# 週初めの曜日を指定:(月: 1, ..., 日: 7)
+dow_start_idx <- 1
+
+# 土・日曜日のインデックスを設定
+dow_sat_idx <- ifelse(dow_start_idx == 7, yes = 7, no = 7 - dow_start_idx)
+dow_sun_idx <- 8 - dow_start_idx
+
 
 # ひと月の暦データを作成
 date_df <- tibble::tibble(
@@ -37,31 +44,28 @@ date_df <- tibble::tibble(
   dplyr::mutate(
     day = lubridate::day(date), # 日にちラベル
     # 作図用の値を作成
-    dow_idx   = lubridate::wday(date), # 曜日番号(列インデックス)
-    dow_label = lubridate::wday(date, label = TRUE), # 曜日ラベル
+    dow_idx   = lubridate::wday(date, week_start = dow_start_idx), # 曜日番号(列インデックス)
+    dow_label = lubridate::wday(date, week_start = dow_start_idx, label = TRUE), # 曜日ラベル
     cell_idx  = day + head(dow_idx, n = 1) - 1, # セルインデックス
     week_idx  = (cell_idx - 1) %/% 7 + 1 # 週番号(行インデックス)
   )
-date_df
 
 # 祝日情報を取得
 holiday_vec <- zipangu::jholiday(year = year, lang = "jp") |> 
   unlist() |> 
   lubridate::as_date()
-holiday_vec
 
 # 祝日の暦データを作成
 tmp_holiday_df <- tibble::tibble(
   date = holiday_vec, # 祝日の日付
   holiday_label = names(holiday_vec), # 祝日ラベル
-  dow_idx = lubridate::wday(date) # 振替休日の作成用
+  dow_idx = lubridate::wday(date, week_start = dow_start_idx) # 振替休日の作成用
 ) |> 
   dplyr::filter(lubridate::month(date) == month) # 指定した月の祝日を抽出
-tmp_holiday_df
 
 # 振替休日の暦データを作成
 holiday_df <- tmp_holiday_df |> 
-  dplyr::filter(dow_idx == 1) |> # 日曜日の祝日を抽出
+  dplyr::filter(dow_idx == dow_sun_idx) |> # 日曜日の祝日を抽出
   dplyr::mutate(
     date = dplyr::case_when(
       holiday_label == "憲法記念日" ~ date + lubridate::days(3), 
@@ -69,25 +73,23 @@ holiday_df <- tmp_holiday_df |>
       TRUE ~ date + lubridate::days(1)
     ), # 日にち
     holiday_label = "振替休日", # 祝日名
-    dow_idx = lubridate::wday(date) # 祝日データの結合用
+    dow_idx = lubridate::wday(date, week_start = dow_start_idx) # 祝日データの結合用
   ) |> 
   dplyr::bind_rows(tmp_holiday_df) |> # 祝日の暦データを結合
   dplyr::select(date, holiday_label, holiday_label) |> # 日付データの結合用
   dplyr::arrange(date)
-holiday_df
 
 # 装飾用の暦データを作成
 calendar_df <- date_df |> 
   dplyr::left_join(holiday_df, by = "date") |> # 祝日データを結合
   dplyr::mutate(
-    day_type = dplyr::case_when(
+    date_type = dplyr::case_when(
       !is.na(holiday_label) ~ "holiday", 
-      dow_label == "日" ~ "holiday", #(または) dow_idx == 7 ~ "holiday", 
-      dow_label == "土" ~ "weekend", #(または) dow_idx == 1 ~ "weekend", 
+      dow_idx == dow_sun_idx ~ "holiday", 
+      dow_idx == dow_sat_idx ~ "weekend", 
       TRUE ~ "weekday"
     ) # 日付カテゴリ
   )
-calendar_df
 
 
 # 予定日の暦データを作成
@@ -105,8 +107,10 @@ schedule_df <- tibble::tibble(
 
 
 # 横軸ラベルを作成
-dow_label_vec <- lubridate::wday(1:7, label = TRUE) # 日本語名
-#dow_label_vec <- lubridate::wday(1:7, label = TRUE, abbr = TRUE, locale = "en_US") # 英語名の省略形
+dow_label_vec <- lubridate::wday(1:7, week_start = dow_start_idx, label = TRUE) |> # 日本語名
+  sort()
+#dow_label_vec <- lubridate::wday(1:7, week_start = dow_start_idx, label = TRUE, abbr = TRUE, locale = "en_US") |> # 英語名の省略形
+#  sort()
 
 # ひと月のカレンダーを作図:(休日のセル色を変更)
 ggplot() + 
@@ -114,7 +118,7 @@ ggplot() +
   #           mapping = aes(x = dow_idx, y = week_idx),
   #           fill = "white", color = "black") + # 平日セル
   geom_tile(data = calendar_df, 
-            mapping = aes(x = dow_idx, y = week_idx, fill = day_type), 
+            mapping = aes(x = dow_idx, y = week_idx, fill = date_type), 
             color = "black", alpha = 0.1) + # 休日セル
   geom_text(data = calendar_df, 
             mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day), 
@@ -154,7 +158,7 @@ ggplot() +
             mapping = aes(x = dow_idx, y = week_idx), 
             fill = "white", color = "black") + # 日付セル
   geom_text(data = calendar_df, 
-            mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day, color = day_type), 
+            mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day, color = date_type), 
             size = 10, hjust = 0, vjust = 1) + # 日付ラベル
   geom_text(data = calendar_df, 
             mapping = aes(x = dow_idx+0.45, y = week_idx-0.4, label = holiday_label), 
@@ -189,7 +193,14 @@ ggplot() +
 ### ・ひと年 -----
 
 # 年を指定
-year <- 2023
+year <- 2024
+
+# 週初めの曜日を指定:(月: 1, ..., 日: 7)
+dow_start_idx <- 7
+
+# 土曜・日曜の曜日インデックスを設定
+dow_sat_idx <- ifelse(dow_start_idx == 7, yes = 7, no = 7 - dow_start_idx)
+dow_sun_idx <- 8 - dow_start_idx
 
 
 # ひと年の暦データを作成
@@ -208,8 +219,8 @@ date_df <- tibble::tibble(
     month = lubridate::month(date), # 月ラベル
     day   = lubridate::day(date),   # 日ラベル
     # 作図用の値を作成
-    dow_idx   = lubridate::wday(date), # 曜日番号(列インデックス)
-    dow_label = lubridate::wday(date, label = TRUE) # 曜日ラベル
+    dow_idx   = lubridate::wday(date, week_start = dow_start_idx), # 曜日番号(列インデックス)
+    dow_label = lubridate::wday(date, week_start = dow_start_idx, label = TRUE) # 曜日ラベル
   ) |> 
   dplyr::group_by(year, month) |> # インデックスの作成用
   dplyr::mutate(
@@ -217,7 +228,6 @@ date_df <- tibble::tibble(
     week_idx = (cell_idx - 1) %/% 7 + 1 # 週番号(行インデックス)
   ) |> 
   dplyr::ungroup()
-date_df
 
 # 祝日情報を取得
 holiday_vec <- zipangu::jholiday(year = year, lang = "jp") |> 
@@ -228,7 +238,7 @@ holiday_vec <- zipangu::jholiday(year = year, lang = "jp") |>
 tmp_holiday_df <- tibble::tibble(
   date = holiday_vec, # 祝日の日付
   holiday_label = names(holiday_vec), # 祝日ラベル
-  dow_idx = lubridate::wday(date) # 振替休日の作成用
+  dow_idx = lubridate::wday(date, week_start = dow_start_idx) # 振替休日の作成用
 )
 
 # 祝日ラベルの文字数を指定
@@ -236,7 +246,7 @@ threshold <- 5
 
 # 振替休日の暦データを作成
 holiday_df <- tmp_holiday_df |> 
-  dplyr::filter(dow_idx == 1) |> # 日曜日の祝日を抽出
+  dplyr::filter(dow_idx == dow_sun_idx) |> # 日曜日の祝日を抽出
   dplyr::mutate(
     date = dplyr::case_when(
       holiday_label == "憲法記念日" ~ date + lubridate::days(3), 
@@ -244,7 +254,7 @@ holiday_df <- tmp_holiday_df |>
       TRUE ~ date + lubridate::days(1)
     ), # 日にち
     holiday_label = "振替休日", # 祝日名
-    dow_idx = lubridate::wday(date) # 祝日データの結合用
+    dow_idx = lubridate::wday(date, week_start = dow_start_idx) # 祝日データの結合用
   ) |> 
   dplyr::bind_rows(tmp_holiday_df) |> # 祝日の暦データを結合
   dplyr::mutate(
@@ -256,20 +266,18 @@ holiday_df <- tmp_holiday_df |>
   ) |> 
   dplyr::select(date, holiday_label, label_size) |> # 日付データの結合用
   dplyr::arrange(date)
-holiday_df
 
 # 装飾用の暦データを作成
 calendar_df <- date_df |> 
   dplyr::left_join(holiday_df, by = "date") |> # 祝日データを結合
   dplyr::mutate(
-    day_type = dplyr::case_when(
+    date_type = dplyr::case_when(
       !is.na(holiday_label) ~ "holiday", 
-      dow_label == "日" ~ "holiday", #(または) dow_idx == 7 ~ "holiday", 
-      dow_label == "土" ~ "weekend", #(または) dow_idx == 1 ~ "weekend", 
+      dow_idx == dow_sun_idx ~ "holiday", 
+      dow_idx == dow_sat_idx ~ "weekend", 
       TRUE ~ "weekday"
     ) # 日付カテゴリ
   )
-calendar_df
 
 
 ## Hello.RprojのReadData.Rを参照
@@ -341,7 +349,10 @@ str_month <- function(string) {
 str_month(month)
 
 # 横軸ラベルを作成
-dow_label_vec <- lubridate::wday(1:7, label = TRUE) # 日本語名
+dow_label_vec <- lubridate::wday(1:7, week_start = dow_start_idx, label = TRUE) |> # 日本語名
+  sort()
+# dow_label_vec <- lubridate::wday(1:7, week_start = dow_start_idx, label = TRUE, abbr = TRUE, locale = "en_US") |> # 英語名の省略形
+#   sort()
 
 # ひと年のカレンダーを作図:(休日のセル色を変更)
 ggplot() + 
@@ -349,7 +360,7 @@ ggplot() +
   #           mapping = aes(x = dow_idx, y = week_idx), 
   #           fill = "white", color = "black") + # 平日セル
   geom_tile(data = calendar_df, 
-            mapping = aes(x = dow_idx, y = week_idx, fill = day_type), 
+            mapping = aes(x = dow_idx, y = week_idx, fill = date_type), 
             color = "black", alpha = 0.1) + # 休日セル
   geom_text(data = calendar_df, 
             mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day), 
@@ -397,7 +408,7 @@ ggplot() +
             mapping = aes(x = dow_idx, y = week_idx), 
             fill = "white", color = "black") + # 日付セル
   geom_text(data = calendar_df, 
-            mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day, color = day_type), 
+            mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day, color = date_type), 
             size = 5, hjust = 0, vjust = 1) + # 日付ラベル
   geom_text(data = calendar_df, 
             mapping = aes(x = dow_idx+0.45, y = week_idx-0.4, label = holiday_label, size = label_size), 
@@ -447,6 +458,13 @@ date_from <- "2021-05-05" |>
 date_to <- "2023-05-04" |> 
   lubridate::as_date()
 
+# 週初めの曜日を指定:(月: 1, ..., 日: 7)
+dow_start_idx <- 7
+
+# 土・日曜日のインデックスを設定
+dow_sat_idx <- ifelse(dow_start_idx == 7, yes = 7, no = 7 - dow_start_idx)
+dow_sun_idx <- 8 - dow_start_idx
+
 
 # 任意期間の暦データを作成
 date_df <- tibble::tibble(
@@ -463,8 +481,8 @@ date_df <- tibble::tibble(
     month = lubridate::month(date), # 月ラベル
     day   = lubridate::day(date),   # 日ラベル
     # 作図用の値を作成
-    dow_idx   = lubridate::wday(date), # 曜日番号(列インデックス)
-    dow_label = lubridate::wday(date, label = TRUE) # 曜日ラベル
+    dow_idx   = lubridate::wday(date, week_start = dow_start_idx), # 曜日番号(列インデックス)
+    dow_label = lubridate::wday(date, week_start = dow_start_idx, label = TRUE) # 曜日ラベル
   ) |> 
   dplyr::group_by(year, month) |> # インデックスの作成用
   dplyr::mutate(
@@ -481,7 +499,6 @@ date_df <- tibble::tibble(
   ) |> 
   dplyr::ungroup() |> 
   dplyr::filter(date >= date_from) # 期間外のデータを除去
-date_df
 
 # 祝日情報を取得
 holiday_vec <- zipangu::jholiday(
@@ -489,7 +506,6 @@ holiday_vec <- zipangu::jholiday(
 ) |> 
   unlist() |> 
   lubridate::as_date()
-head(holiday_vec)
 
 # 祝日の暦データを作成
 tmp_holiday_df <- tibble::tibble(
@@ -497,50 +513,13 @@ tmp_holiday_df <- tibble::tibble(
   holiday_label = holiday_vec |> 
     names() |> 
     stringr::str_remove(pattern = "\\d"), # 祝日ラベル
-  dow_idx = lubridate::wday(date) # 振替休日の作成用
+  dow_idx = lubridate::wday(date, week_start = dow_start_idx) # 振替休日の作成用
 ) |> 
   dplyr::filter(dplyr::between(date, left = date_from, right = date_to)) |>  # 期間内のデータを抽出
   dplyr::arrange(date)
-tmp_holiday_df
 
-# 祝日ラベルの文字数を指定
-threshold <- 5
-
-# 振替休日の暦データを作成
-holiday_df <- tmp_holiday_df |> 
-  dplyr::filter(dow_idx == 1) |> # 日曜日の祝日を抽出
-  dplyr::mutate(
-    date = dplyr::case_when(
-      holiday_label == "憲法記念日" ~ date + lubridate::days(3), 
-      holiday_label == "みどりの日" ~ date + lubridate::days(2), 
-      TRUE ~ date + lubridate::days(1)
-    ), # 日にち
-    holiday_label = "振替休日", # 祝日名
-    dow_idx = lubridate::wday(date) # 祝日データの結合用
-  ) |> 
-  dplyr::bind_rows(tmp_holiday_df) |> # 祝日の暦データを結合
-  dplyr::mutate(
-    label_size = dplyr::if_else(
-      condition = nchar(holiday_label) <= threshold, 
-      true  = "normal", 
-      false = "small"
-    ) # ラベルサイズカテゴリ:(日付ラベルと祝日ラベルが重なる対策)
-  ) |> 
-  dplyr::select(date, holiday_label, label_size) |> # 日付データの結合用
-  dplyr::arrange(date)
+# 「ひと月のカレンダー」のときのコードで作成
 holiday_df
-
-# 装飾用の暦データを作成
-calendar_df <- date_df |> 
-  dplyr::left_join(holiday_df, by = "date") |> # 祝日データを結合
-  dplyr::mutate(
-    day_type = dplyr::case_when(
-      !is.na(holiday_label) ~ "holiday", 
-      dow_label == "日" ~ "holiday", #(または) dow_idx == 7 ~ "holiday", 
-      dow_label == "土" ~ "weekend", #(または) dow_idx == 1 ~ "weekend", 
-      TRUE ~ "weekday"
-    ) # 日付カテゴリ
-  )
 calendar_df
 
 
@@ -559,7 +538,8 @@ title_label <- paste0(
 )
 
 # 横軸ラベルを作成
-dow_label_vec <- lubridate::wday(1:7, label = TRUE) # 日本語名
+dow_label_vec <- lubridate::wday(1:7, week_start = dow_start_idx, label = TRUE) |> # 日本語名
+  sort()
 
 # 任意期間のカレンダーを作図:(休日のラベル色を変更)
 ggplot() + 
@@ -567,7 +547,7 @@ ggplot() +
             mapping = aes(x = dow_idx, y = week_idx), 
             fill = "white", color = "black") + # 日付セル
   geom_text(data = calendar_df, 
-            mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day, color = day_type), 
+            mapping = aes(x = dow_idx-0.4, y = week_idx-0.4, label = day, color = date_type), 
             size = 3, hjust = 0, vjust = 1) + # 日付ラベル
   scale_x_continuous(breaks = 1:7, labels = dow_label_vec) + # 曜日軸
   scale_y_reverse(breaks = 1:6) + # 週軸
@@ -616,7 +596,7 @@ tmp_freq_df <- tweet_df |>
   ) |> 
   dplyr::count(date, name = "n") |> # ツイート数をカウント
   dplyr::arrange(date)
-tmp_freq_df
+
 
 # 期間を指定
 date_from <- min(tmp_freq_df[["date"]])
@@ -659,7 +639,7 @@ ggplot() +
             color = "black") + # ツイート数ヒートマップ
   geom_label(data = calendar_df, 
              mapping = aes(x = dow_idx-0.5, y = week_idx-0.5, 
-                           label = stringr::str_pad(day, side = "left", width = 2, pad = " "), color = day_type), 
+                           label = stringr::str_pad(day, side = "left", width = 2, pad = " "), color = date_type), 
              size = 3.5, hjust = 0, vjust = 1, label.padding = unit(0.1, units = "line"), 
              na.rm = TRUE, show.legend = FALSE) + # 日付ラベル
   geom_text(data = freq_df, 
@@ -741,7 +721,8 @@ post_df
 
 
 # 横軸ラベルを作成
-dow_label_vec <- lubridate::wday(1:7, label = TRUE) # 日本語名
+dow_label_vec <- lubridate::wday(1:7, week_start = dow_start_idx, label = TRUE) |> # 日本語名
+  sort()
 
 # タイトル用の文字列を作成
 title_label <- paste0(
@@ -762,7 +743,7 @@ ggplot() +
             size = 5) + # 投稿数ラベル
   geom_label(data = calendar_df, 
              mapping = aes(x = dow_idx-0.5, y = week_idx-0.5, 
-                           label = stringr::str_pad(day, side = "left", width = 2, pad = " "), color = day_type), 
+                           label = stringr::str_pad(day, side = "left", width = 2, pad = " "), color = date_type), 
              size = 3.5, hjust = 0, vjust = 1, label.padding = unit(0.1, units = "line"), 
              na.rm = TRUE, show.legend = FALSE) + # 日付ラベル
   scale_x_continuous(breaks = 1:7, labels = dow_label_vec) + # 曜日軸
@@ -818,7 +799,7 @@ month_df <- tibble::tibble(
     from = date_from |> 
       lubridate::rollforward(roll_to_first = TRUE), # 基準日の翌月の初日
     to = (date_from + lubridate::years(year_len)) |> 
-      lubridate::floor_date(unit = "month"), # 指定した年数後の基準日の月の初日
+      lubridate::floor_date(unit = "month"), # 指定年数後の基準日の月の初日
     by = "month"
   )
 ) |> 
@@ -835,50 +816,46 @@ month_df <- tibble::tibble(
       lubridate::day() |> 
       as.numeric(), # 基準日の前月の末日
     # 経過期間を計算
-    n = lubridate::interval(start = date_from, end = date) |> 
+    y = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "year") |> 
       floor(), # 経過年数
     m = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "month") |> 
       floor() %% 12, # 経過月数 - 経過年数
-    l = dplyr::case_when(
+    d = dplyr::case_when(
       from_day >= pre_last_day ~ 1, # 基準日の日にちが無い月の場合は「1にち」
       from_day == 1 ~ 0, # 基準日が月初の場合は「0にち」
       from_day <= pre_last_day ~ pre_last_day - from_day + 1 # 基準日の日にちが有る月の場合は「前月における基準日からの日数」
     ), # 経過日数 - 経過年月数
     days = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "day"), # 総経過日数
-    nml_label = paste0(n, "年", m, "か月", l, "日") # 経過期間ラベル
+    ymd_label = paste0(y, "年", m, "か月", d, "日") # 経過期間ラベル
   )
 month_df
 
 
-### ・日ごとの経過期間：ヒートマップ -----
+### ・日ごとの経過期間 -----
 
 # 基準日を指定
 date_from <- "2020-05-15" |> 
   lubridate::as_date()
 
+# 期間を指定
+year_len <- 1
+day_len  <- 10
 
 # 基準日以降の日ごとに経過期間を計算
 date_df <- tibble::tibble(
   # 1日間隔の日付を作成
   date = seq(
     from = date_from , # 基準日
-    to = (date_from + lubridate::years(1)) |> 
-      lubridate::rollforward(), # 1年後の基準日の月の末日
+    to = date_from + lubridate::years(year_len) + lubridate::days(day_len), # 指定期間後の基準日
     by = "day"
   )
 ) |> 
   dplyr::mutate(
     # 期間計算用の値を作成
-    year = date |> 
-      lubridate::year() |> 
-      as.numeric(), # 経過日の年
-    month = date |> 
-      lubridate::month() |> 
-      as.numeric(), # 経過日の月
-    day = date |> 
+    date_day = date |> 
       lubridate::day() |> 
       as.numeric(), # 経過日の日にち
     from_day = date_from |> 
@@ -889,44 +866,42 @@ date_df <- tibble::tibble(
       lubridate::day() |> 
       as.numeric(), # 基準日の前月の末日
     # 経過期間を計算
-    n = lubridate::interval(start = date_from, end = date) |> 
+    y = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "year") |> 
       floor(), # 経過年数
     m = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "month") |> 
       floor() %% 12, # 経過月数 - 経過年数
-    l = dplyr::case_when(
-      (day < from_day & pre_last_day >  from_day) ~ pre_last_day - from_day + day, # 前月の途中から
-      (day < from_day & pre_last_day <= from_day) ~ day, # 当月の頭から
-      day >= from_day ~ day - from_day # 当月の途中から
+    d = dplyr::case_when(
+      (from_day > date_day & from_day <  pre_last_day) ~ pre_last_day - from_day + date_day, # 前月の途中から
+      (from_day > date_day & from_day >= pre_last_day) ~ date_day, # 当月の頭から
+      from_day <= date_day ~ date_day - from_day # 当月の途中から
     ), # 経過日数 - 経過年月数
     days = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "day"), # 総経過日数
-    nml_label = paste0(n, "年", m, "か月", l, "日") # 経過期間ラベル
+    ymd_label = paste0(y, "年", m, "か月", d, "日") # 経過期間ラベル
   )
 date_df
 
 
 # ヒートマップ用に経過期間データを整形
 heatmap_df <- date_df |> 
-  dplyr::select(date, n, m, l, days, nml_label) |> 
+  dplyr::select(date, d, days, ymd_label, day = date_day) |> 
   dplyr::mutate(
     year_month = date |> 
       format(format = "%Y-%m") |> 
-      factor(), # 年月ラベル
-    day = date |> 
-      lubridate::day() # 日ラベル
+      factor() # 年月ラベル
   )
 heatmap_df
 
 # 経過期間をヒートマップで可視化
 ggplot() + 
   geom_tile(data = heatmap_df, 
-            mapping = aes(x = year_month, y = day, fill = l)) + # 日付セル
+            mapping = aes(x = year_month, y = day, fill = d)) + # 日付セル
   geom_tile(mapping = aes(x = format(date_from, format = "%Y-%m"), y = lubridate::day(date_from)), 
             fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
   geom_text(data = heatmap_df, 
-            mapping = aes(x = year_month, y = day, label = nml_label)) + # 経過期間ラベル
+            mapping = aes(x = year_month, y = day, label = ymd_label)) + # 経過期間ラベル
   scale_y_reverse(breaks = 1:31) + # 日軸
   scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション
   theme(panel.grid.minor = element_blank()) + # 図の体裁
@@ -935,166 +910,31 @@ ggplot() +
        x = "年-月", y = "日")
 
 
-### ・日ごとの経過期間：カレンダー -----
-
-# 基準日を指定
-date_from <- "2020-05-15" |> 
-  lubridate::as_date()
-
-
-# 基準日以降の日ごとに経過期間を計算
-date_df <- tibble::tibble(
-  # 1日間隔の日付を作成
-  date = seq(
-    from = date_from |> 
-      lubridate::floor_date(unit = "month"), # 基準日の月の初日
-    to = (date_from + lubridate::years(1)) |> 
-      lubridate::rollforward(), # 1年後の基準日の月の末日
-    by = "day"
-  )
-) |> 
-  dplyr::mutate(
-    # 期間計算用の値を作成
-    year = date |> 
-      lubridate::year() |> 
-      as.numeric(), # 経過日の年
-    month = date |> 
-      lubridate::month() |> 
-      as.numeric(), # 経過日の月
-    day = date |> 
-      lubridate::day() |> 
-      as.numeric(), # 経過日の日にち
-    from_day = date_from |> 
-      lubridate::day() |> 
-      as.numeric(), # 基準日の日にち
-    pre_last_day = date |> 
-      lubridate::rollback() |> 
-      lubridate::day() |> 
-      as.numeric(), # 基準日の前月の末日
-    # 経過期間を計算
-    n = dplyr::if_else(
-      condition = date >= date_from, 
-      true = lubridate::interval(start = date_from, end = date) |> 
-        lubridate::time_length(unit = "year") |> 
-        floor(), 
-      false = NA_real_
-    ), # 経過年数
-    m = dplyr::if_else(
-      condition = date >= date_from, 
-      true = lubridate::interval(start = date_from, end = date) |> 
-        lubridate::time_length(unit = "month") |> 
-        floor() %% 12, 
-      false = NA_real_
-    ), # 経過月数 - 経過年数
-    l = dplyr::case_when(
-      date < date_from ~ NA_real_, # 基準日前の場合
-      (day < from_day & pre_last_day >  from_day) ~ pre_last_day - from_day + day, # 前月の途中から
-      (day < from_day & pre_last_day <= from_day) ~ day, # 当月の頭から
-      day >= from_day ~ day - from_day # 当月の途中から
-    ), # 経過日数 - 経過年月数
-    days = lubridate::interval(start = date_from, end = date) |> 
-      lubridate::time_length(unit = "day"), # 総経過日数
-    nml_label = dplyr::if_else(
-      condition = date >= date_from, 
-      true = paste0(n, "年", m, "か月", l, "日"), 
-      false = NA_character_
-    ) # 経過期間ラベル
-  )
-date_df
-
-
-# カレンダー用に経過期間データを整形
-calendar_df <- date_df |> 
-  dplyr::select(date, year, month, day, l, days, nml_label) |> 
-  dplyr::mutate(
-    dow_idx   = lubridate::wday(date), # 曜日(列)インデックス
-    dow_label = lubridate::wday(date, label = TRUE) # 曜日ラベル
-  ) |> 
-  dplyr::group_by(year, month) |> # インデックスの作成用
-  dplyr::mutate(
-    cell_idx = dplyr::if_else(
-      condition = date >= date_from, 
-      true = dplyr::row_number() + head(dow_idx, n = 1) - 1, 
-      false = NA_real_
-    ), # セルインデックス
-    week_idx = dplyr::if_else(
-      condition = date >= date_from, 
-      true = (cell_idx - 1) %/% 7 + 1, 
-      false = NA_real_
-    ) # 週(行)インデックス
-  ) |> 
-  dplyr::ungroup()
-calendar_df
-
-# 基準日を格納
-date_from_df <- calendar_df |> 
-  dplyr::filter(date == date_from) # 基準日のデータを抽出
-date_from_df
-
-
-# ラベル用の関数を作成
-str_year <- function(string) {
-  paste0(string, "年")
-}
-str_month <- function(string) {
-  paste0(string, "月")
-}
-
-# 経過期間をカレンダー上のヒートマップで可視化
-ggplot() + 
-  geom_tile(data = calendar_df, 
-            mapping = aes(x = dow_idx, y = week_idx, fill = l), 
-            color = "black", na.rm = TRUE) + # 日付セル
-  geom_tile(data = date_from_df, 
-            mapping = aes(x = dow_idx, y = week_idx), 
-            fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
-  geom_label(data = calendar_df, 
-             mapping = aes(x = dow_idx-0.5, y = week_idx-0.5, label = day), 
-             hjust = 0, vjust = 1, label.padding = unit(0.1, units = "line"), 
-             size = 2, na.rm = TRUE) + # 日付ラベル
-  geom_text(data = calendar_df, 
-            mapping = aes(x = dow_idx, y = week_idx, label = nml_label), 
-            size = 2, vjust = 1, na.rm = TRUE) + # 経過日数ラベル
-  scale_x_continuous(breaks = 1:7, labels = lubridate::wday(1:7, label = TRUE)) + # 曜日軸
-  scale_y_reverse(breaks = 1:max(calendar_df[["week_idx"]], na.rm = TRUE)) + # 週軸
-  scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション
-  facet_wrap(year ~ month, labeller = labeller(year = str_year, month = str_month), scales = "free_x") + # 月ごとに分割
-  theme(panel.grid.minor = element_blank()) + # 図の体裁
-  labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
-       fill = "経過日数", 
-       x = "曜日", y = "週") # ラベル
-
-# 画像を保存
-#ggsave(filename = "calendar.png", plot = last_plot(), width = 20, height = 16, dpi = 200)
-
-
 ### ・日ごとの事前・事後の経過期間 -----
 
 # 基準日を指定
 date_from <- "2020-05-30" |> 
   lubridate::as_date()
 
+# 期間を指定
+years_before <- 1
+days_before  <- 30
+years_after <- 0
+days_after  <- 30
+
 
 # 基準日以前・以降の日ごとに経過期間を計算
 date_df <- tibble::tibble(
   # 1日間隔の日付を作成
   date = seq(
-    from = (date_from - lubridate::years(1)) |> 
-      lubridate::rollback(roll_to_first = TRUE), # 1年前の基準日の前月の初日
-    to = (date_from + lubridate::days(40)) |> 
-      lubridate::rollforward(), # 基準日の40日後の月の末日
+    from = date_from - lubridate::years(years_before) - lubridate::days(days_before), # 指定期間前の基準日
+    to   = date_from + lubridate::years(years_after) + lubridate::days(days_after), # 指定期間後の基準日
     by = "day"
   )
 ) |> 
   dplyr::mutate(
     # 期間計算用の値を作成
-    year = date |> 
-      lubridate::year() |> 
-      as.numeric(), # 経過日の年
-    month = date |> 
-      lubridate::month() |> 
-      as.numeric(), # 経過日の月
-    day = date |> 
+    date_day = date |> 
       lubridate::day() |> 
       as.numeric(), # 経過日の日にち
     from_day = date_from |> 
@@ -1109,7 +949,7 @@ date_df <- tibble::tibble(
       lubridate::day() |> 
       as.numeric(), # 基準日の前月の末日
     # 経過期間を計算
-    n = dplyr::case_when(
+    y = dplyr::case_when(
       date >= date_from ~ lubridate::interval(start = date_from, end = date) |> 
         lubridate::time_length(unit = "year") |> 
         floor(), 
@@ -1125,42 +965,40 @@ date_df <- tibble::tibble(
         lubridate::time_length(unit = "month") |> 
         floor() %% 12 * (-1)
     ), # 経過月数 - 経過年数
-    l = dplyr::case_when(
-      (date >= date_from & day <  from_day & pre_last_day >  from_day) ~ pre_last_day - from_day + day, # 前月の途中から当月の途中まで
-      (date >= date_from & day <  from_day & pre_last_day <= from_day) ~ day, # 当月の頭から当月の途中まで
-      (date >= date_from & day >= from_day) ~ day - from_day, # 当月の途中から当月の途中まで
-      (date <  date_from & day >  from_day) ~ day - last_day - from_day, # 当月の途中から前月の途中まで
-      (date <  date_from & day <= from_day) ~ day - from_day # 前月の途中から前月の頭まで
+    d = dplyr::case_when(
+      (date >= date_from & from_day >  date_day & from_day >  pre_last_day) ~ pre_last_day - from_day + date_day, # 前月の途中から当月の途中まで
+      (date >= date_from & from_day >  date_day & from_day <= pre_last_day) ~ date_day , # 当月の頭から当月の途中まで
+      (date >= date_from & from_day <= date_day) ~ date_day - from_day, # 当月の途中から当月の途中まで
+      (date <  date_from & from_day <  date_day) ~ date_day - last_day - from_day, # 当月の途中から前月の途中まで
+      (date <  date_from & from_day <= date_day) ~ date_day - from_day # 前月の途中から前月の頭まで
     ), # 経過日数 - 経過年月数
     days = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "day"), # 総経過日数
-    nml_label = paste0(n, "年", m, "か月", l, "日") # 経過期間ラベル
+    ymd_label = paste0(y, "年", m, "か月", d, "日") # 経過期間ラベル
   )
 date_df
 
 
 # ヒートマップ用に経過期間データを整形
 heatmap_df <- date_df |> 
-  dplyr::select(date, n, m, l, days, nml_label) |> 
+  dplyr::select(date, d, days, ymd_label, day = date_day) |> 
   dplyr::mutate(
     year_month = date |> 
       format(format = "%Y-%m") |> 
-      factor(), # 年月ラベル
-    day = date |> 
-      lubridate::day() # 日ラベル
+      factor() # 年月ラベル
   )
 heatmap_df
 
 # 経過期間をヒートマップで可視化
 ggplot() + 
   geom_tile(data = heatmap_df, 
-            mapping = aes(x = year_month, y = day, fill = l)) + # 日付セル
+            mapping = aes(x = year_month, y = day, fill = d)) + # 日付セル
   geom_tile(mapping = aes(x = format(date_from, format = "%Y-%m"), y = lubridate::day(date_from)), 
             fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
   geom_text(data = heatmap_df, 
-            mapping = aes(x = year_month, y = day, label = nml_label)) + # 経過期間ラベル
+            mapping = aes(x = year_month, y = day, label = ymd_label)) + # 経過期間ラベル
   scale_y_reverse(breaks = 1:31) + # 日軸
-  scale_fill_gradient2(low = "hotpink", mid = "white" , high = "#00A968") + # 経過日数グラデーション:(正負)
+  scale_fill_gradient2(low = "hotpink", mid = "white" , high = "#00A968") + # 経過日数のグラデーション
   theme(panel.grid.minor = element_blank()) + # 図の体裁
   labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
        fill = "日数の差", 

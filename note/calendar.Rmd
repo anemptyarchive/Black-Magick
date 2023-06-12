@@ -17,7 +17,8 @@ knitr::opts_chunk$set(echo = TRUE)
 
 【編集履歴】
 
-- 2023.05.27：「カレンダーを作成したい」を作成
+- 2023.05.27：「カレンダーを作成したい」を追加
+- 2023.06.11：「経過日数を求めたい」を追加
 
 ----
 
@@ -1004,7 +1005,7 @@ str_year(lubridate::year(date_from)); str_month(lubridate::month(date_from))
 
 ```{r, fig.width=40, fig.height=10, dpi=100}
 # 任意期間のカレンダーを作図:(休日のラベル色を変更)
-calendar_fill <- ggplot() + 
+ggplot() + 
   geom_tile(data = calendar_df,
             mapping = aes(x = dow_idx, y = week_idx),
             fill = "white", color = "black") + # 平日セル
@@ -1035,7 +1036,6 @@ calendar_fill <- ggplot() +
     legend.position = "none" # 凡例の位置
   ) + # 図の体裁
   labs(x = "曜日", y = "週")
-calendar_fill
 ```
 
 　これまでと同様にして作図する。\
@@ -1044,7 +1044,7 @@ calendar_fill
 
 ```{r, fig.width=40, fig.height=10, dpi=100}
 # 任意期間のカレンダーを作図:(休日のラベル色を変更)
-calendar_color <- ggplot() + 
+ggplot() + 
   geom_tile(data = calendar_df, 
             mapping = aes(x = dow_idx, y = week_idx), 
             fill = "white", color = "black") + # 日付セル
@@ -1072,7 +1072,6 @@ calendar_color <- ggplot() +
     legend.position = "none" # 凡例の位置
   ) + # 図の体裁
   labs(x = "曜日", y = "週")
-calendar_color
 ```
 
 \ 
@@ -1308,9 +1307,9 @@ ggplot() +
 \
 
 
-# 2つの日付の差から経過期間(y年mか月とd日)を求めたい
+# 2つの日付間の経過日数(y年mか月とd日)を求めたい
 
-　ある日付からの経過日数を「何年何か月と何日」の形式で求めたい。総年数や総月数、総日数であれば`lubridate`パッケージの関数で簡単に求められるが、前月の同じ日にちからの経過日数を求めるのは(たぶん)ややこしいのでやってみる。簡単に求められるのであれば教えてほしい。\
+　ある日付からの経過期間(年・月・日数)を「何年何か月と何日」の形式で求めたい。総年数や総月数、総日数であれば`lubridate`パッケージの関数で簡単に求められるが、前月の基準となる日にちからの経過日数を求めるのは(たぶん)ややこしいのでやってみる。簡単に求められるのであれば教えてほしい。\
 \
 
 　利用するパッケージを読み込む。
@@ -1338,31 +1337,36 @@ library(ggplot2)
 　まずは簡単な例として、毎月1日時点の経過期間を求める。\
 \
 
-　基準となる日を設定する。
+
+### 期間計算
+
+　基準となる日と期間を設定する。
 
 ```{r}
 # 基準日を指定
-date_from <- "2020-05-05" |> 
+date_from <- "2022-01-15" |> 
   lubridate::as_date()
-date_from
+
+# 期間の最終日を指定
+date_max <- "2023-02-15" |> 
+  lubridate::as_date()
+date_from; date_max
 ```
 
-　各期間の開始日を`"yyyy-mm-dd"`などの形式の文字列で指定して、`as_date()`で日付型の値に変換する。\
+　各期間の開始日を`date_from`、期間の最終日(の月)を`date_max`として`"yyyy-mm-dd"`などの形式の文字列で指定して、`as_date()`で日付型の値に変換する。\
+　`date_from`を基準日、`date_max`までの日を経過日と呼ぶことにする。\
 
 　月ごとに経過期間を計算する。
 
 ```{r}
-# 年数を指定
-year_len <- 3
-
 # 基準日以降の月ごとに経過期間を計算
 month_df <- tibble::tibble(
   # 1か月間隔の日付を作成
   date = seq(
     from = date_from |> 
       lubridate::rollforward(roll_to_first = TRUE), # 基準日の翌月の初日
-    to = (date_from + lubridate::years(year_len)) |> 
-      lubridate::floor_date(unit = "month"), # 指定年数後の基準日の月の初日
+    to = date_max |> 
+      lubridate::floor_date(unit = "month"), # 期間の最終日の月の初日
     by = "month"
   )
 ) |> 
@@ -1377,19 +1381,19 @@ month_df <- tibble::tibble(
     pre_last_day = date |> 
       lubridate::rollback() |> 
       lubridate::day() |> 
-      as.numeric(), # 基準日の前月の末日
+      as.numeric(), # 経過日の前月の末日
     # 経過期間を計算
     y = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "year") |> 
       floor(), # 経過年数
     m = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "month") |> 
-      floor() %% 12, # 経過月数 - 経過年数
+      floor() %% 12, # 経過月数
     d = dplyr::case_when(
       from_day >= pre_last_day ~ 1, # 基準日の日にちが無い月の場合は「1にち」
       from_day == 1 ~ 0, # 基準日が月初の場合は「0にち」
       from_day <= pre_last_day ~ pre_last_day - from_day + 1 # 基準日の日にちが有る月の場合は「前月における基準日からの日数」
-    ), # 経過日数 - 経過年月数
+    ), # 経過日数
     days = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "day"), # 総経過日数
     ymd_label = paste0(y, "年", m, "か月", d, "日") # 経過期間ラベル
@@ -1398,20 +1402,20 @@ month_df |>
   dplyr::select(!date_day) # 資料用に間引き
 ```
 
-　計算を行う年数を`year_len`として、指定した日付`date_from`の「翌月の1日」から「`year_len`年後の当月の1日」まで1か月間隔の日付を`seq(by = "month")`で作成して、データフレームに格納する。\
+　「`date_from`の翌月の1日」から「`date_max`の月の1日」まで1か月間隔の日付を`seq(by = "month")`で作成して、経過日列`date`としてデータフレームに格納する。\
 
-　条件式や計算用に、各日付の日にちを`date_day`列、基準日の日にちを`from_day`列、基準日の前月の日にちを`pre_last_day`列としておく。日にちの値は`day()`、前月の月末の日付は`rollback()`で得られる。\
+　条件式や計算用に、経過日の日にちを`date_day`列、基準日の日にちを`from_day`列、経過日の前月末の日にちを`pre_last_day`列としておく。日にちの値は`day()`、前月の月末の日付は`rollback()`で得られる。\
 
-　基準日`date_from`から各日付`date`までの経過年数を`interval()`と`time_length(unit = "year")`で計算して`y`列とする。\
-　同様に、総月数を`interval()`と`time_length(unit = "month")`で計算して、さらに`12`で割った余りを経過月数`m`列とする。商余は`%%`で計算できる。\
-　経過日数は、`case_when()`を使って、基準日によって場合分けして計算して`d`列とする。
+　基準日`date_from`から各経過日`date`までの経過年数を`interval()`と`time_length(unit = "year")`で計算して`y`列とする。\
+　総経過月数を`interval()`と`time_length(unit = "month")`で計算して、1年の月数`12`で割った余りを経過月数`m`列とする。商余は`%%`で計算できる。\
+　経過日数は、`case_when()`を使って「基準日の日にち」によって場合分けして計算して、`d`列とする。
 
-- 基準日の日にちが前月に存在しない(`from_day`が`pre_last_day`より大きい)または月末(`from_day`と`pre_last_day`が同じ)の場合は、基準日を月末とみなして、経過日数は`1`である。
-- 基準日が経過日と同じ日にち(1日)(`from_day`が`1`)の場合は、経過日数は`0`である。
-- 基準日の日にちが前月に存在する(前月の末日より前の日)(`from_day`が`pre_last_day`より小さい)または月末(`from_day`と`pre_last_day`が同じ)の場合は、前月の基準日の日から月末までの日数(`pre_last_day - from_day`)の`1`にち後である。\
+- 「基準の日にち」が「前月に無い」(`from_day`が`pre_last_day`より大きい)または「前月末の日にち」(`from_day`と`pre_last_day`が同じ)の場合は、基準の日にちを月末とみなして、`1`にちである。
+- 「基準の日にち」が「経過日と同じ日にち(1日)」(`from_day`が`1`)の場合は、`0`にちである。
+- 「基準の日にち」が「前月に有る(前月末の日にちより前の日にち)」(`from_day`が`pre_last_day`より小さい)場合は、前月の基準の日から月末までの日数(`pre_last_day - from_day`)の`1`にち後である。「基準の日にち」が「前月末の日にち」(`from_day`と`pre_last_day`が同じ)の場合は、こちらの式でも計算できる。\
 
-　総日数は`interval()`と`time_length(unit = "day")`で計算できる。\
-　経過日数列`y, m, d`を用いて、経過日数ラベルを作成して`ymd_label`列とする。\
+　総経過日数は`interval()`と`time_length(unit = "day")`で計算できる。\
+　経過期間列`y, m, d`を用いて、経過期間ラベルを作成して`ymd_label`列とする。\
 \
 
 
@@ -1420,25 +1424,24 @@ month_df |>
 　続いて、日ごとに経過期間を求める。\
 \
 
-　基準となる日を設定して、日ごとに経過期間を計算する。
+
+### 期間計算
+
+　基準となる日と期間を設定して、日ごとに経過期間を計算する。
 
 ```{r}
 # 基準日を指定
-date_from <- "2020-05-15" |> 
+date_from <- "2022-01-30" |> 
   lubridate::as_date()
 
-# 期間を指定
-year_len <- 1
-day_len  <- 10
+# 期間の最終日を指定
+date_max <- "2023-02-20" |> 
+  lubridate::as_date()
 
 # 基準日以降の日ごとに経過期間を計算
 date_df <- tibble::tibble(
   # 1日間隔の日付を作成
-  date = seq(
-    from = date_from , # 基準日
-    to = date_from + lubridate::years(year_len) + lubridate::days(day_len), # 指定期間後の基準日
-    by = "day"
-  )
+  date = seq(from = date_from , to = date_max, by = "day")
 ) |> 
   dplyr::mutate(
     # 期間計算用の値を作成
@@ -1451,19 +1454,19 @@ date_df <- tibble::tibble(
     pre_last_day = date |> 
       lubridate::rollback() |> 
       lubridate::day() |> 
-      as.numeric(), # 基準日の前月の末日
+      as.numeric(), # 経過日の前月の末日
     # 経過期間を計算
     y = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "year") |> 
       floor(), # 経過年数
     m = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "month") |> 
-      floor() %% 12, # 経過月数 - 経過年数
+      floor() %% 12, # 経過月数
     d = dplyr::case_when(
       (from_day > date_day & from_day <  pre_last_day) ~ pre_last_day - from_day + date_day, # 前月の途中から
       (from_day > date_day & from_day >= pre_last_day) ~ date_day, # 当月の頭から
       from_day <= date_day ~ date_day - from_day # 当月の途中から
-    ), # 経過日数 - 経過年月数
+    ), # 経過日数
     days = lubridate::interval(start = date_from, end = date) |> 
       lubridate::time_length(unit = "day"), # 総経過日数
     ymd_label = paste0(y, "年", m, "か月", d, "日") # 経過期間ラベル
@@ -1472,18 +1475,18 @@ date_df |>
   dplyr::select(!date_day) # 資料用に間引き
 ```
 
-　基準日`date_from`と、計算を行う期間を年数`year_len`と日数`day_len`で指定する。\
-　`date_from`から指定した期間後までの1日間隔の日付を`seq(by = "day")`を作成して、データフレームに格納する。\
+　基準日`date_from`と期間の最終日`date_max`を日付型の値で指定する。\
+　`date_from`から`date_max`までの1日間隔の日付を`seq(by = "day")`を作成して、経過日列`date`としてデータフレームに格納する。\
 
-　「月ごとの経過日数」のときと同様にして、各日付の日にち列`date_day`、基準日の日にち列`from_day`、基準日の前月の日にち列`pre_last_day`を作成しておく。\
-　また、基準日`date_from`から各日付`date`までの経過年数`y`、経過月数`m`を計算する。\
+　「月ごとの経過日数」のときと同様にして、経過日の日にち列`date_day`、基準日の日にち列`from_day`、経過日の前月末の日にち列`pre_last_day`を作成しておく。\
+　また、基準日`date_from`から各経過日`date`までの経過年数列`y`、経過月数列`m`を計算する。\
 
-　経過日数`d`を、「基準日」と「経過日」または「経過日の前月の末日」との大小関係によって場合分けして計算する。
+　経過日数列`d`は、「基準日の日にち」と「経過日の日にち」または「経過日の前月末の日にち」との大小関係によって場合分けして計算する。
 
-- 「経過日の日にち」から「基準日の日にち」までの日数を計算する(`form_day`が`date_day`より大きい)場合は、さらに2つの場合に応じて計算を行う。
-    - 基準日の日にちが前月に存在する(前月の末日より前の日)(`from_day`が`pre_last_day`より小さい)場合は、「前月の基準日」から「月末までの日数」(`pre_last_day - from_day`)と「当月の経過日」`date_day`の和である。
-    - 基準日の日にちが前月に存在しない(`from_day`が`pre_last_day`より大きい)または月末(`from_day`と`pre_last_day`が同じ)の場合は、基準日を月末とみなして、経過日数は`date_day`である。
-- 「基準日の日にち」から「経過日の日にち」までの日数を計算する(`form_day`が`date_day`以下の)場合は、`date_day - from_day`である。
+- 「経過日の日にち」から「基準の日にち」まで(`form_day`が`date_day`より大きい場合)の日数を、さらに2つの場合に応じて計算する。
+    - 「基準の日にち」が「前月に有る(前月末の日にちより前の日にち)」(`from_day`が`pre_last_day`より小さい)場合は、「前月の基準の日から月末までの日数」(`pre_last_day - from_day`)と「当月の経過日数」(`date_day`)の和である。
+    - 「基準の日にち」が「前月に無い」(`from_day`が`pre_last_day`より大きい)または「前月末の日にち」(`from_day`と`pre_last_day`が同じ)の場合は、基準の日を月末とみなして、「当月の経過日数」(`date_day`)である。
+- 「基準の日にち」から「経過日の日にち」まで(`form_day`が`date_day`以下の場合)の日数は、「当月の基準の日から経過日までの日数」(`date_day - from_day`)である。
 
 　経過日数列`y, m, d`を用いて、経過日数ラベルを作成して`ymd_label`列とする。\
 \
@@ -1502,7 +1505,7 @@ date_df |>
 ```{r}
 # ヒートマップ用に経過期間データを整形
 heatmap_df <- date_df |> 
-  dplyr::select(date, d, days, ymd_label, day = date_day) |> 
+  dplyr::select(date, d, ymd_label, day = date_day) |> 
   dplyr::mutate(
     year_month = date |> 
       format(format = "%Y-%m") |> 
@@ -1511,11 +1514,11 @@ heatmap_df <- date_df |>
 heatmap_df
 ```
 
-　この例では、x軸をの年月、y軸を日として可視化する。`date`列から年と月部分を`format()`で文字列として取り出す。\
+　この例では、各経過日を1つのセルにするためx軸を年月、y軸を日として、各経過日の前月の基準の日からの日数で濃淡を付けて可視化する。`date`列から年・月部分を`format()`で文字列として取り出す。\
 
-　ヒートマップとラベルで確認する。
+　ヒートマップとラベルで経過期間を確認する。
 
-```{r, fig.width=15, fig.height=10, dpi=100}
+```{r, fig.width=20, fig.height=10, dpi=100}
 # 経過期間をヒートマップで可視化
 ggplot() + 
   geom_tile(data = heatmap_df, 
@@ -1525,28 +1528,31 @@ ggplot() +
   geom_text(data = heatmap_df, 
             mapping = aes(x = year_month, y = day, label = ymd_label)) + # 経過期間ラベル
   scale_y_reverse(breaks = 1:31) + # 日軸
-  scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション
+  scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション:(正の値のみの場合)
+  #scale_fill_gradient2(low = "hotpink", mid = "white" , high = "#00A968") + # 経過日数のグラデーション:(負の値を含む場合)
   theme(panel.grid.minor = element_blank()) + # 図の体裁
   labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
        fill = "日数の差", 
        x = "年-月", y = "日")
 ```
 
-　基準日の日にち(この例だと15日)における経過日数は全て0日なのを確認できる。月末の日数が異なるので、基準日の日にちより前の日にちでは経過日数が異なる。\
+　基準の日にち(この例だと15日)における経過日数が全て0日で、月末にかけて1日ずつ増えるのを確認できる。月末の日数が異なるので、基準の日にちより前の日にちでは経過日数が異なる。\
 \
 
 
 ### カレンダーで確認
 
-　同様に、カレンダー形式で確認する。(色々あって同時期にカレンダーを作ったのでやってみるだけで、特に意味はない。たぶんこっちの方が分かりにくい。)詳しくは「ggplot2でカレンダーを作成した」を参照のこと。\
+　同様に、カレンダー形式で確認する。(色々あって同時期にカレンダーを作ったのでやってみるだけで、特に意味はない。たぶんこっちの方が分かりにくい。)詳しくは「ggplot2でカレンダーを作りたい」を参照のこと。\
 \
+
+<details><summary>・コード(クリックで展開)</summary>
 
 　カレンダーの作図用のデータフレームを作成する。
 
 ```{r}
 # カレンダー用に経過期間データを整形
 calendar_df <- date_df |> 
-  dplyr::select(date, day = date_day, d, days, ymd_label) |> 
+  dplyr::select(date, day = date_day, d, ymd_label) |> 
   dplyr::bind_rows(
     tibble::tibble(
       # 1日間隔の日付を作成
@@ -1584,18 +1590,20 @@ calendar_df <- date_df |>
   ) |> 
   dplyr::ungroup() |> 
   dplyr::filter(date >= date_from) # 基準日以前の日付を除去
-calendar_df
+calendar_df |> 
+  dplyr::select(!day) # 資料用に間引き
 ```
 
-　基準日以前の同月の日付を追加して、各日付が何曜日であるかと第何週であるかを計算する。基準日以前の日付は、欠損値にするか取り除く。この例ではどちらも行っている。\
+　基準日以前の同月の日付を追加して、日付ごとに曜日番号と週番号(各日付が何曜日であるかと第何週であるか)を計算する。基準日以前の日付は、インデックスを欠損値にするかインデックスの計算後に取り除く。この例ではどちらも行っている。(基準日が月初だった場合は、前月の日付が追加されるが処理上の問題はない。)\
 
-　基準日を示すためのデータフレームを作成する。
+　基準日を表示するためのデータフレームを作成する。
 
 ```{r}
 # 基準日を格納
 date_from_df <- calendar_df |> 
   dplyr::filter(date == date_from) # 基準日のデータを抽出
-date_from_df
+date_from_df |> 
+  dplyr::select(!day) # 資料用に間引き
 ```
 
 　カレンダー用の値`calendar_df`から基準日`date_from`の値を取り出す。\
@@ -1610,6 +1618,268 @@ str_year <- function(string) {
 str_month <- function(string) {
   paste0(string, "月")
 }
+
+# 経過期間をカレンダー上のヒートマップで可視化
+calendar_graph <- ggplot() + 
+  geom_tile(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx, fill = d), 
+            color = "black") + # 日付セル
+  geom_tile(data = date_from_df, 
+            mapping = aes(x = dow_idx, y = week_idx), 
+            fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
+  geom_label(data = calendar_df, 
+             mapping = aes(x = dow_idx-0.5, y = week_idx-0.5, label = day), 
+             hjust = 0, vjust = 1, label.padding = unit(0.1, units = "line"), 
+             size = 1.5) + # 日付ラベル
+  geom_text(data = calendar_df, 
+            mapping = aes(x = dow_idx, y = week_idx, label = ymd_label), 
+            size = 1.5) + # 経過日数ラベル
+  scale_x_continuous(breaks = 1:7, labels = lubridate::wday(1:7, label = TRUE)) + # 曜日軸
+  scale_y_reverse(breaks = 1:6) + # 週軸
+  scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション:(正の値のみの場合)
+  #scale_fill_gradient2(low = "hotpink", mid = "white" , high = "#00A968") + # 経過日数のグラデーション:(負の値を含む場合)
+  facet_wrap(year ~ month, labeller = labeller(year = str_year, month = str_month)) + # 月ごとに分割
+  theme(panel.grid.minor = element_blank()) + # 図の体裁
+  labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
+       fill = "経過日数", 
+       x = "曜日", y = "週")
+#calendar_graph
+```
+
+</details>
+
+```{r, echo=FALSE, fig.width=15, fig.height=12, dpi=100}
+### 資料作成用:(再掲)
+
+calendar_graph
+```
+
+　`geom_tile()`と`geome_label()`でカレンダー形式でヒートマップを描画する。\
+\
+
+
+## 事前・事後の日ごとに経過日数
+
+　ここまでは、指定した日以降の日付を扱った。最後は、指定した日以前の日付も含めて経過期間を求める。\
+\
+
+
+### 期間計算
+
+　基準となる日と期間を設定して、日ごとに経過期間を計算する。
+
+```{r}
+# 基準日を指定
+date_from <- "2022-01-30" |> 
+  lubridate::as_date()
+
+# 期間を指定
+date_min <- "2020-12-10" |> 
+  lubridate::as_date()
+date_max <- "2022-03-10" |> 
+  lubridate::as_date()
+
+# 基準日以前・以降の日ごとに経過期間を計算
+date_df <- tibble::tibble(
+  # 1日間隔の日付を作成
+  date = seq(from = date_min, to = date_max, by = "day")
+) |> 
+  dplyr::mutate(
+    # 期間計算用の値を作成
+    date_day = date |> 
+      lubridate::day() |> 
+      as.numeric(), # 経過日の日にち
+    from_day = date_from |> 
+      lubridate::day() |> 
+      as.numeric(), # 基準日の日にち
+    last_day = date |> 
+      lubridate::rollforward() |> 
+      lubridate::day() |> 
+      as.numeric(),# 基準日の月の末日
+    pre_last_day = date |> 
+      lubridate::rollback() |> 
+      lubridate::day() |> 
+      as.numeric(), # 経過日の前月の末日
+    next_last_day = date |> 
+      lubridate::rollforward(roll_to_first = TRUE) |> 
+      lubridate::rollforward() |> 
+      lubridate::day() |> 
+      as.numeric(), # 経過日の翌月の末日
+    # 経過期間を計算
+    y = dplyr::case_when(
+      date >= date_from ~ lubridate::interval(start = date_from, end = date) |> 
+        lubridate::time_length(unit = "year") |> 
+        floor(), 
+      date < date_from ~ lubridate::interval(start = date, end = date_from) |> 
+        lubridate::time_length(unit = "year") |> 
+        floor() * (-1), 
+    ), # 経過年数
+    m = dplyr::case_when(
+      date >= date_from ~ lubridate::interval(start = date_from, end = date) |> 
+        lubridate::time_length(unit = "month") |> 
+        floor() %% 12, 
+      date < date_from ~ lubridate::interval(start = date, end = date_from) |> 
+        lubridate::time_length(unit = "month") |> 
+        floor() %% 12 * (-1)
+    ), # 経過月数
+    d = dplyr::case_when(
+      (date >= date_from & from_day >  date_day & from_day <  pre_last_day) ~ pre_last_day - from_day + date_day, # 前月の途中から当月の途中まで
+      (date >= date_from & from_day >  date_day & from_day >= pre_last_day) ~ date_day, # 当月の頭から当月の途中まで
+      (date >= date_from & from_day <= date_day) ~ date_day - from_day, # 当月の途中から当月の途中まで
+      (date <  date_from & from_day <  date_day & from_day <= next_last_day) ~ date_day - last_day - from_day, # 当月の途中から翌月の途中まで
+      (date <  date_from & from_day <  date_day & from_day >  next_last_day) ~ date_day - last_day - next_last_day-1, # 当月の途中から翌々月の頭まで
+      (date <  date_from & from_day >= date_day & from_day <= last_day) ~ date_day - from_day, # 当月の途中から当月の途中まで
+      (date <  date_from & from_day >= date_day & from_day >  last_day) ~ date_day - last_day-1 # 当月の途中から翌月の頭まで
+    ), # 経過日数
+    days = lubridate::interval(start = date_from, end = date) |> 
+      lubridate::time_length(unit = "day"), # 総経過日数
+    ymd_label = paste0(y, "年", m, "か月", d, "日") # 経過期間ラベル
+  )
+date_df |> 
+  dplyr::select(!c(date_day, from_day)) # 資料用に間引き
+```
+
+　基準日`date_from`、期間の開始日`date_min`と最終日`date_max`を日付型の値で指定する。\
+　「日ごとの経過日数」のときと同様に、`date_min`から`date_max`までの日付を作成して、経過日の日にち列`date_day`、基準日の日にち列`from_day`、経過日の月末の日にち列`last_day`、経過日の前月末の日にち列`pre_last_day`、経過日の翌月末の日にち列`next_last_day`を作成しておく。\
+
+　「経過日」が「基準日」以降(`date`が`date_from`以上)の場合は、基準日`date_from`から各経過日`date`までの経過年数列`y`、経過月数列`m`を計算する。\
+　「経過日」が「基準日」以前(`date`が`date_from`未満)の場合は、各経過日`date`から基準日`date_from`までの経過年数列`y`、経過月数列`m`を計算して、それぞれ負の値にする(`-1`を掛ける)。\
+
+　経過日数列`d`は、「基準日」と「経過日」、また「基準日の日にち」と「経過日の日にち」または「経過日の前月末の日にち」との大小関係によって場合分けして計算する。
+
+- 「経過日」が「基準日」以降(`date`が`date_from`以上)または同じ場合は、「日ごとの経過日数」のときと同様にして日数を求める。
+    - 「経過日の日にち」から「基準の日にち」まで(`form_day`が`date_day`より大きい場合)の日数を、さらに2つの場合に応じて計算する。
+        - 「基準の日にち」が「前月に有る」(`from_day`が`pre_last_day`より小さい)場合は、「前月の基準の日から月末までの日数」(`pre_last_day - from_day`)と「当月の経過日数」(`date_day`)の和である。
+        - 「基準の日にち」が「前月に無い・前月末の日にち」(`from_day`が`pre_last_day`以上)の場合は、基準の日を月末とみなして、「当月の経過日数」(`date_day`)である。
+    - 「基準の日にち」から「経過日の日にち」まで(`form_day`が`date_day`以下の場合)の日数は、「当月の基準の日から経過日までの日数」(`date_day - from_day`)である。
+- 「経過日」が「基準日」以前(`date`が`date_from`未満)の場合は、負の日数を求める。
+    - 「経過日の日にち」から「基準の日にち」まで(`form_day`が`date_day`より小さい場合)の負の日数は、「当月の経過日から月末までの負の日数」(`date_day - last_day - 1`)と「翌月の基準の日までの負の日数」(`1 - from_day`)の和である。
+    - ただし「翌月に基準の日にちが無い」(`from_day`が`next_last_day`より大きい)場合は、基準の日を翌々月の初日とみなして、「翌月の初日から翌々月の初日までの負の日数」(`1 - (next_last_day+1)`)との和である。
+    - 「基準の日にち」から「経過日の日にち」まで(`form_day`が`date_day`以上の場合)の負の日数は、「経過日から当月の基準の日までの負の日数」(`date_day - from_day`)である。
+    - ただし「当月に基準の日にちが無い」(`from_day`が`last_day`より大きい)場合は、基準の日を翌月の初日とみなして、「経過日から翌月の初日までの負の日数」(`date_day - (last_day+1)`)である。
+
+　経過日数列`y, m, d`を用いて、経過日数ラベルを作成して`ymd_label`列とする。\
+\
+
+　以上で、経過期間を計算できた。続いて、計算結果を確認する。\
+\
+
+
+### ヒートマップで確認
+
+　ヒートマップとラベルで計算結果を確認する。\
+\
+
+　「ひと年のカレンダー」のときのコードで、作図用のデータフレームを作成して、ヒートマップとラベルで経過期間を確認する。
+
+```{r, echo=FALSE}
+### 資料作成用:(再掲)
+
+# ヒートマップ用に経過期間データを整形
+heatmap_df <- date_df |> 
+  dplyr::select(date, d, days, ymd_label, day = date_day) |> 
+  dplyr::mutate(
+    year_month = date |> 
+      format(format = "%Y-%m") |> 
+      factor() # 年月ラベル
+  )
+```
+
+```{r}
+# 確認
+heatmap_df
+```
+
+```{r, echo=FALSE, fig.width=20, fig.height=10, dpi=100}
+### 資料作成用:(再掲)
+
+# 経過期間をヒートマップで可視化
+ggplot() + 
+  geom_tile(data = heatmap_df, 
+            mapping = aes(x = year_month, y = day, fill = d)) + # 日付セル
+  geom_tile(mapping = aes(x = format(date_from, format = "%Y-%m"), y = lubridate::day(date_from)), 
+            fill = "blue", color = "blue", alpha = 0.1) + # 基準日セル
+  geom_text(data = heatmap_df, 
+            mapping = aes(x = year_month, y = day, label = ymd_label)) + # 経過期間ラベル
+  scale_y_reverse(breaks = 1:31) + # 日軸
+  #scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション:(正の値のみの場合)
+  scale_fill_gradient2(low = "hotpink", mid = "white" , high = "#00A968") + # 経過日数のグラデーション:(負の値を含む場合)
+  theme(panel.grid.minor = element_blank()) + # 図の体裁
+  labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
+       fill = "日数の差", 
+       x = "年-月", y = "日")
+```
+
+　基準日以前の日においても、基準の日にち(この例だと15日)における経過日数が全て0日なのを確認できる。月初にかけて1日ずつ減る。月末の日数が異なるので、基準の日にちより後の日にちでは経過日数が異なる。\
+\
+
+
+### カレンダーで確認
+
+　一応こっちもやっておく。\
+\
+
+<details><summary>・コード(クリックで展開)</summary>
+
+　カレンダーの作図用のデータフレームを作成する。
+
+```{r}
+# カレンダー用に経過期間データを整形
+calendar_df <- date_df |> 
+  dplyr::select(date, day = date_day, d, ymd_label) |> 
+  dplyr::bind_rows(
+    tibble::tibble(
+      # 1日間隔の日付を作成
+      date = seq(
+        from = (date_min - lubridate::days(1)) |> # (-1は期間の開始日が月初の場合の簡易的対策)
+          lubridate::floor_date(unit = "month"), # 期間の開始日の月の初日
+        to   = date_min - lubridate::days(1), # 期間の開始の前日
+        by = "day"
+      )
+    )
+  ) |> # 基準日の月のインデックスの計算用
+  dplyr::arrange(date) |> # インデックスの計算用
+  dplyr::mutate(
+    year = date |> 
+      lubridate::year() |> 
+      as.numeric(), # 経過日の年
+    month = date |> 
+      lubridate::month() |> 
+      as.numeric(), # 経過日の月
+    dow_idx   = lubridate::wday(date), # 曜日番号(列インデックス)
+    dow_label = lubridate::wday(date, label = TRUE) # 曜日ラベル
+  ) |> 
+  dplyr::group_by(year, month) |> # インデックスの作成用
+  dplyr::mutate(
+    cell_idx = dplyr::if_else(
+      condition = date >= date_min, 
+      true = dplyr::row_number() + head(dow_idx, n = 1) - 1, 
+      false = NA_real_
+    ), # セルインデックス
+    week_idx = dplyr::if_else(
+      condition = date >= date_min, 
+      true = (cell_idx - 1) %/% 7 + 1, 
+      false = NA_real_
+    ) # 週番号(行インデックス)
+  ) |> 
+  dplyr::ungroup() |> 
+  dplyr::filter(date >= date_min) # 基準日以前の日付を除去
+calendar_df |> 
+  dplyr::select(!day) # 資料用に間引き
+```
+
+　基準日`date_from`ではなく期間の開始日`date_min`を用いて、「ひと年のカレンダー」のときと同様に処理する。\
+
+　「ひと年のカレンダー」のときのコードで、カレンダー上にヒートマップとラベルを描画して確認する。
+
+</details>
+
+```{r, echo=FALSE, fig.width=15, fig.height=12, dpi=100}
+### 資料作成用:(再掲)
+
+# 基準日を格納
+date_from_df <- calendar_df |> 
+  dplyr::filter(date == date_from) # 基準日のデータを抽出
 
 # 経過期間をカレンダー上のヒートマップで可視化
 ggplot() + 
@@ -1628,15 +1898,17 @@ ggplot() +
             size = 1.5) + # 経過日数ラベル
   scale_x_continuous(breaks = 1:7, labels = lubridate::wday(1:7, label = TRUE)) + # 曜日軸
   scale_y_reverse(breaks = 1:6) + # 週軸
-  scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション
-  facet_wrap(year ~ month, labeller = labeller(year = str_year, month = str_month), scales = "free_x") + # 月ごとに分割
+  #scale_fill_gradient(low = "white" , high = "#00A968") + # 経過日数のグラデーション:(正の値のみの場合)
+  scale_fill_gradient2(low = "hotpink", mid = "white" , high = "#00A968") + # 経過日数のグラデーション:(負の値を含む場合)
+  facet_wrap(year ~ month, labeller = labeller(year = str_year, month = str_month)) + # 月ごとに分割
   theme(panel.grid.minor = element_blank()) + # 図の体裁
   labs(title = paste0(format(date_from, format = "%Y年%m月%d日"), "からの経過期間"), 
        fill = "経過日数", 
        x = "曜日", y = "週")
 ```
 
-　`geom_tile()`と`geome_label()`でカレンダー形式でヒートマップを描画する。\
-\
+\ 
 
+　この記事では、経過期間を計算した。\
+\
 

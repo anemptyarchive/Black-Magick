@@ -1,5 +1,5 @@
 
-# 二分木の作図 ------------------------------------------------------------------
+# バイナリツリーの作図 ------------------------------------------------------------------
 
 # 利用パッケージ
 library(tidyverse)
@@ -38,17 +38,17 @@ edge_df <- dplyr::bind_rows(
   node_df |> 
     dplyr::filter(depth > 0) |> # 根を除去
     dplyr::mutate(
-      edge_id     = index, # 線分描画用
-      vertex_type = "childe" # 目視確認用
+      edge_id   = index, # 線分描画用
+      node_type = "childe" # 目視確認用
     ), 
   # 親ノードの座標
   node_df |> 
     dplyr::filter(depth > 0) |> # 根を除去
     dplyr::mutate(
-      edge_id     = index, # 線分描画用
-      vertex_type = "parent", # 目視確認用
-      depth = depth - 1, 
-      index = index %/% 2, 
+      edge_id   = index, # 線分描画用
+      node_type = "parent", # 目視確認用
+      depth   = depth - 1, 
+      index   = index %/% 2, 
       col_idx = index - 2^depth + 1, 
       coord_x = (col_idx * 2 - 1) * 1/(2^depth * 2)
     )
@@ -58,6 +58,7 @@ edge_df <- dplyr::bind_rows(
 
 
 # ツリーの高さを取得
+max_h <- floor(log2(N))
 max_h <- max(node_df[["depth"]])
 
 # 縦方向の余白の調整値を指定
@@ -84,12 +85,12 @@ ggplot() +
        y = "depth")
 
 
-# 二分木の剪定 ------------------------------------------------------------------
+# 部分木インデックスの計算 ------------------------------------------------------------------
 
-# 部分木の作成処理の定義
+# 部分木インデックスの定義
 subtree <- function(root_index, max_index) {
   
-  # 最大位置を取得
+  # インデックスの最大値を取得
   N <- max_index
   
   # 部分木の根を取得
@@ -104,7 +105,7 @@ subtree <- function(root_index, max_index) {
     tmp_idx <- c(2*i, 2*i+1)
     
     # 子インデックスを格納
-    childe_idx <- c(childe_idx, tmp_idx[tmp_idx <= N]) # 最大位置を超過したら除去
+    childe_idx <- c(childe_idx, tmp_idx[tmp_idx <= N]) # 最大位置を超えたら除去
   }
   
   # 子がなければ再帰処理を終了
@@ -122,7 +123,7 @@ subtree <- function(root_index, max_index) {
 }
 
 
-### ・部分木の作成 -----
+# 部分木の作成 ------------------------------------------------------------------
 
 # ノード数を指定
 N <- 31
@@ -136,11 +137,77 @@ sub_node_idx <- subtree(sub_root_idx, N)
 # 値を作成
 a <- sample(x = 1:N, size = N, replace = TRUE)
 
-# 部分木のノードを抽出
+# 部分木以外のノードを剪定
 a[!(1:N %in% sub_node_idx)] <- NA
 
 
-### ・欠損の作成 -----
+# 頂点の座標を作成
+d <- 0.6
+node_df <- tibble::tibble(
+  value   = a, 
+  node_id = 1:N, 
+  index   = dplyr::if_else(
+    condition = !is.na(value), true = node_id, false = NA_real_
+  ), 
+  depth   = floor(log2(index)), 
+  col_idx = index - 2^depth + 1, # 深さごとの頂点数
+  coord_x = (col_idx * 2 - 1) * 1/(2^depth * 2), 
+  label_offset = dplyr::if_else(
+    condition = index%%2 == 0, true = 0.5+d, false = 0.5-d
+  ) # ラベル位置を左右にズラす
+)
+
+# 辺の座標を作成
+edge_df <- dplyr::bind_rows(
+  # 子ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0, !node_id %in% sub_root_idx) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, # 線分描画用
+      node_type = "childe" # 目視確認用
+    ), 
+  # 親ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0, !node_id %in% sub_root_idx) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, # 線分描画用
+      node_type = "parent", # 目視確認用
+      depth   = depth - 1, 
+      index   = index %/% 2, 
+      col_idx = index - 2^depth + 1, 
+      coord_x = (col_idx * 2 - 1) * 1/(2^depth * 2)
+    )
+) |> 
+  dplyr::select(!label_offset) |> 
+  dplyr::arrange(edge_id, depth)
+
+
+# ツリーの高さを取得
+max_h <- floor(log2(N))
+
+# 部分二分木を作図
+d <- 0.1
+ggplot() + 
+  geom_path(data = edge_df, 
+            mapping = aes(x = coord_x, y = depth, group = edge_id)) + # 辺
+  geom_point(data = node_df, 
+             mapping = aes(x = coord_x, y = depth), 
+             size = 12, shape = "circle filled", fill = "white", stroke = 1, na.rm = TRUE) + # 頂点
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = value), 
+            size = 5, na.rm = TRUE) + # 値ラベル
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
+            size = 4, vjust = -2, color = "red", na.rm = TRUE) + # 位置ラベル
+  scale_x_continuous(labels = NULL, name = "") + 
+  scale_y_reverse(breaks = 0:max_h, limits = c(max_h+d, -d), minor_breaks = FALSE) + 
+  coord_cartesian(xlim = c(0, 1)) + 
+  labs(title = "binary tree", 
+       subtitle = "subtree", 
+       y = "depth")
+
+
+# 欠損の作成 -------------------------------------------------------------------
 
 # ノード数を指定
 N <- 31
@@ -154,11 +221,9 @@ del_node_idx <- subtree(sub_root_idx, N)
 # 値を作成
 a <- sample(x = 1:N, size = N, replace = TRUE)
 
-# ノードを削除
+# 部分木のノードを剪定
 a[del_node_idx] <- NA
 
-
-### ・作図 -----
 
 # 頂点の座標を作成
 d <- 0.6
@@ -182,28 +247,26 @@ edge_df <- dplyr::bind_rows(
   node_df |> 
     dplyr::filter(depth > 0) |> # 根を除去
     dplyr::mutate(
-      edge_id     = index, # 線分描画用
-      vertex_type = "childe" # 目視確認用
+      edge_id   = index, # 線分描画用
+      node_type = "childe" # 目視確認用
     ), 
   # 親ノードの座標
   node_df |> 
     dplyr::filter(depth > 0) |> # 根を除去
     dplyr::mutate(
-      edge_id     = index, # 線分描画用
-      vertex_type = "parent", # 目視確認用
-      depth = depth - 1, 
-      index = index %/% 2, 
+      edge_id   = index, # 線分描画用
+      node_type = "parent", # 目視確認用
+      depth   = depth - 1, 
+      index   = index %/% 2, 
       col_idx = index - 2^depth + 1, 
       coord_x = (col_idx * 2 - 1) * 1/(2^depth * 2)
     )
 ) |> 
-  dplyr::filter(!node_id %in% sub_root_idx) |> # 部分木外のエッジを除去
   dplyr::select(!label_offset) |> 
   dplyr::arrange(edge_id, depth)
 
 
 # ツリーの高さを取得
-max_h <- floor(log2(N))
 max_h <- max(node_df[["depth"]], na.rm = TRUE)
 
 # 部分二分木を作図
@@ -224,7 +287,7 @@ ggplot() +
   scale_y_reverse(breaks = 0:max_h, limits = c(max_h+d, -d), minor_breaks = FALSE) + 
   coord_cartesian(xlim = c(0, 1)) + 
   labs(title = "binary tree", 
-       subtitle = "subtree", 
+       subtitle = paste0("height = ", max_h), 
        y = "depth")
 
 

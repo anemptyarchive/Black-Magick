@@ -1,5 +1,5 @@
 ---
-title: "二分木の作図"
+title: "n分木の作図"
 author: "[@anemptyarchive](https://www.anarchive-beta.com/)"
 date: "`r format(Sys.time(), '%Y-%m-%d %H:%M:%S')`"
 output: 
@@ -22,13 +22,14 @@ knitr::opts_chunk$set(
 
 - 2023.09.03：執筆開始
 - 2023.09.05：「二分木の作図」を追加
+- 2023.09.13：「n分木の作図」を追加
 
 ----
 
 
 # ggplot2で二分木を作図したい
 
-　ggplot2パッケージを利用して、二分木(バイナリーツリー・binary tree)のグラフを作成する。  
+　ggplot2パッケージを利用して、二分木(二進木・バイナリーツリー・binary tree)のグラフを作成する。  
 <br>
 
 　利用するパッケージを読み込む。
@@ -52,8 +53,8 @@ library(ggplot2)
 
 ## 二分木の作成
 
-　まずは簡易版として、「上から下」また「左から右」方向に欠損なくノード(要素)が並ぶ二分木のツリー(グラフ)を作成する。  
-　ただし、最初のノード(要素)のインデックスを1とする。(Rが1からなので)インデックスを0から割り当てる場合はここでは扱わない。  
+　まずは簡易版として、「上から下」また「左から右」方向に欠損なくノード(要素)が並ぶ二分木のグラフを作成する。  
+　ただし、最初のノード(要素)のインデックスを1とする(Rが1からなので)。インデックスを0から割り当てる場合は「n分木を作図したい」を参照のこと。  
 <br>
 
 　ノード数を指定して、値を作成する。
@@ -91,10 +92,10 @@ node_df
 
 　この例では、根ノードのインデックスを $i = 1$、深さを $h = 0$ とする。  
 
-　各ノード(要素) $v_i$ の値 $a_i$ とインデックス $i$ をデータフレームに格納して、深さ $h$ を計算する。各ノードの深さは $h = \lfloor \log_2 i \rfloor$ で求まる。$\lfloor x \rfloor$ は、床関数(`floor()`)で、$x$ を超えない最大の整数(小数点以下の切り捨て)を表す。  
-　各深さにおけるノード番号(位置)を $k$、左端のノードを $k = 1$ で表すことにする。左から1番目のインデックスは $i = 2^h$ なので、左からの各ノードの位置は $k = i - 2^h + 1$ で求まる。  
-　各分岐をシンメトリーに描画する場合は、深さごとに、ノード数の2倍に等間隔 $2^{h+1}$ に分割した $2 k - 1$ 番目の位置にノードを配置する。  
-　ラベル位置の調整用の値を作成する。インデックスが偶数の場合は左にズラすために0.5以上の値、奇数の場合は右にズラすために0.5以下の値を格納する。  
+　各ノード(要素) $v_i$ の値 $a_i$ とインデックス $i$ をデータフレームに格納して、深さ $h$ を計算する。各ノード(インデックス)の深さは $h = \lfloor \log_2 i \rfloor$ で求まる。$\lfloor x \rfloor$ は、床関数(`floor()`)で、$x$ 以下の最大の整数(小数点以下の切り捨て)を表す。  
+　各深さにおけるノード番号(位置)を $k$、左端のノードを $k = 1$ で表すことにする。左から1番目(左端)のノードのインデックスは $i = 2^h$ なので、左からの位置は $k = i - 2^h + 1$ で求まる。  
+　各分岐をシンメトリーに描画する場合は、深さごとに、ノード数の2倍の個数 $2 \cdot 2^h$ に等間隔 $\frac{1}{2^{h+1}}$ に分割した $2 k - 1$ 番目の位置にノードを配置する。このとき、x軸の範囲は0から1になる。  
+　ラベル位置の調整用の値を作成する。この例では、インデックスが偶数の場合は左にズラすために0.5以上の値、奇数の場合は右にズラすために0.5以下の値を格納する。  
 
 　エッジの描画用のデータフレームを作成する。
 
@@ -125,9 +126,9 @@ edge_df <- dplyr::bind_rows(
 edge_df
 ```
 
-　親子ノードを結ぶエッジ(辺・枝)の描画用に、各ノード $v_i$ と親ノード $v_j$ のデータを行方向に結合する。  
-　各ノードのデータ `node_df` から、根ノードのデータ(行)を除く。  
-　また、各ノードのデータから親ノードのデータを計算する。親ノードの深さは $h_{(\mathrm{parent})} = h_{(\mathrm{childe})} - 1$、インデックスは $j = \lfloor \frac{i}{2} \rfloor$ で求まる。座標などを $j$ を用いて計算する。  
+　親子ノードを結ぶエッジ(辺・枝)の描画用に、子ノードのインデックスを $i$、親ノードのインデックスを $j$ として、子ノード $v_i$ と親ノード $v_j$ の座標データをそれぞれ作成して行方向に結合する。  
+　子ノードのデータは、各ノードのデータ `node_df` から根ノードのデータ(行)を取り除く。  
+　親ノードのデータは、各ノードのデータから根ノードのデータを取り除いて親ノードのデータを計算する。親ノードの深さは $h_{(\mathrm{parent})} = h_{(\mathrm{childe})} - 1$、インデックスは $j = \lfloor \frac{i}{2} \rfloor$ で求まる。座標などは $j$ を用いて先ほどと同様にして計算する。  
 　元のノードのインデックスをエッジIDとする。  
 
 　バイナリツリーを作成する。
@@ -135,6 +136,7 @@ edge_df
 ```{r, fig.width=10, fig.height=8, dpi=100}
 # ツリーの高さを取得
 max_h <- max(node_df[["depth"]])
+max_h <- floor(log2(N))
 
 # 縦方向の余白の調整値を指定
 d <- 0.1
@@ -152,7 +154,7 @@ ggplot() +
             size = 5) + # 値ラベル
   geom_text(data = node_df, 
             mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
-            size = 4, vjust = -2, color = "red") + # 位置ラベル
+            size = 4, vjust = -2, color = "blue") + # 位置ラベル
   scale_x_continuous(labels = NULL, name = "") + 
   scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
   coord_cartesian(xlim = c(0, 1), ylim = c(max_h+d, -d)) + 
@@ -192,7 +194,7 @@ edge_df <- dplyr::bind_cols(
 edge_df
 ```
 
-　各ノードのデータと親ノードの座標データを列方向に結合(別の列として追加)する。別の列にするために列名を変更して、先ほどと同様にして計算する。  
+　各ノードのデータと親ノードの座標データをそれぞれ作成して列方向に結合(別の列として追加)する。別の列にするために列名を変更して、先ほどと同様にして計算する。  
 
 　バイナリツリーを作成する。
 
@@ -216,7 +218,7 @@ ggplot() +
             size = 5) + # 要素ラベル
   geom_text(data = node_df, 
             mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
-            size = 4, vjust = -2, color = "red") + # 位置ラベル
+            size = 4, vjust = -2, color = "blue") + # 位置ラベル
   scale_x_continuous(labels = NULL, name = "") + 
   scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
   coord_cartesian(xlim = c(0, 1), ylim = c(max_h+d, -d)) + 
@@ -227,7 +229,7 @@ ggplot() +
 
 　`geom_segment()` でエッジを描画する。始点の座標の引数 `x, y` に各ノードに関する値、終点の座標の引数 `xend, yend` に親ノードに関する値を指定する(始点と終点を入れ替えても作図できる)。  
 
-　どちらの方法でもグラフ自体には影響しない。ただしこちらは、ノードごとに値ラベルではなく要素ラベルを表示した。  
+　どちらの方法でもグラフ自体には影響しない。ただしこちらは(同じ図を作っても面白くないので)、ノードごとに値ラベルではなく要素ラベルを表示した。  
 <br>
 
 
@@ -281,7 +283,7 @@ subtree <- function(root_index, max_index) {
 
 ## 部分木の作成
 
-　二分木の部分木のツリー(グラフ)を作成する。  
+　二分木の部分木のグラフを作成する。  
 <br>
 
 　ノード数と部分木の根を指定して、部分木を作成する。
@@ -367,8 +369,7 @@ edge_df <- dplyr::bind_rows(
 edge_df
 ```
 
-　「二分木の作成」のときと同様に処理する。ただし、部分木の根ノードとその親ノードを結ぶエッジが描画されてしまうのを避けるため、部分木の根ノードの行も取り除く。  
-　根の除去の際に、欠損ノードのデータ(行)も除去される。  
+　「二分木の作成」のときと同様に処理する。ただし、部分木の根ノードとその親ノードを結ぶエッジが描画されてしまうのを避けるため、部分木の根ノードの行も取り除く。根の除去の際に、欠損ノードのデータ(行)も除去される。  
 
 　部分木のバイナリツリーを作成する。
 
@@ -390,7 +391,7 @@ ggplot() +
             size = 4, na.rm = TRUE) + # 値ラベル
   geom_text(data = node_df, 
             mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
-            size = 3, vjust = -2, color = "red", na.rm = TRUE) + # 位置ラベル
+            size = 3, vjust = -2, color = "blue", na.rm = TRUE) + # 位置ラベル
   scale_x_continuous(labels = NULL, name = "") + 
   scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
   coord_cartesian(xlim = c(0, 1), ylim = c(max_h+d, -d)) + 
@@ -399,7 +400,7 @@ ggplot() +
        y = "depth")
 ```
 
-　「二分木の作成」のときと同様に処理する。欠損値が含まれるレイヤに `na.rm = TRUE` を追加すると、メッセージが表示されなくなる。元のコードでもグラフ自体には影響しない。  
+　「二分木の作成」のときと同様に処理する。欠損値が含まれるレイヤに `na.rm = TRUE` を追加すると、警告文が表示されなくなる。元のコードでもグラフ自体には影響しない。  
 
 　N個のノードを持つ二分木から、指定した部分木のツリーが得られた。  
 <br>
@@ -407,7 +408,7 @@ ggplot() +
 
 ## 欠損の作成
 
-　続いて、二分木の一部のノード(部分木)を取り除いたツリー(グラフ)を作成する。  
+　続いて、二分木の一部のノード(部分木)を取り除いたグラフを作成する。  
 <br>
 
 　ノード数と削除する部分木の根を指定して、部分木を作成する。
@@ -442,7 +443,7 @@ a
 
 　ノードの描画用のデータフレームを作成する。
 
-```{r, echo=FALSE}
+```{r}
 # ノードの座標を作成
 d <- 0.5
 node_df <- tibble::tibble(
@@ -514,7 +515,7 @@ ggplot() +
             size = 4, na.rm = TRUE) + # 値ラベル
   geom_text(data = node_df, 
             mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
-            size = 3, vjust = -2, color = "red", na.rm = TRUE) + # 位置ラベル
+            size = 3, vjust = -2, color = "blue", na.rm = TRUE) + # 位置ラベル
   scale_x_continuous(labels = NULL, name = "") + 
   scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
   coord_cartesian(xlim = c(0, 1), ylim = c(max_h+d, -d)) + 
@@ -570,6 +571,8 @@ a
 　先ほどのコードで、バイナリツリーを作成する。
 
 ```{r, echo=FALSE, fig.width=13, fig.height=6, dpi=100}
+### 資料作成用:(再掲)
+
 # ノードの座標を作成
 d <- 0.5
 node_df <- tibble::tibble(
@@ -627,7 +630,7 @@ ggplot() +
             size = 4, na.rm = TRUE) + # 値ラベル
   geom_text(data = node_df, 
             mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
-            size = 3, vjust = -2, color = "red", na.rm = TRUE) + # 位置ラベル
+            size = 3, vjust = -2, color = "blue", na.rm = TRUE) + # 位置ラベル
   scale_x_continuous(labels = NULL, name = "") + 
   scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
   coord_cartesian(xlim = c(0, 1), ylim = c(max_h+d, -d)) + 
@@ -639,7 +642,551 @@ ggplot() +
 　根の値以上のノードのみが残るツリーが得られた(元のツリーの内、根の値以上のノードの全てが残っているわけではない)。  
 <br>
 
-　この記事では、部分木を作成した。  
+　この記事では、インデックスが1からのニ分木のグラフを作成した。次の記事では、インデックスが0からで指定した数に分岐するツリーを作成する。  
 <br>
+
+
+# ggplot2でn分木を作図したい
+
+　gplot2パッケージを利用して、n分木(n進木・nアレイツリー・n-ary tree)のグラフを作成する。  
+<br>
+
+　利用するパッケージを読み込む。
+
+```{r, eval=FALSE}
+# 利用パッケージ
+library(tidyverse)
+```
+
+```{r, echo=FALSE}
+### 資料作成用
+
+# チェック用
+library(ggplot2)
+```
+
+　この記事では、基本的に `パッケージ名::関数名()` の記法を使っているので、パッケージを読み込む必要はない。ただし、作図コードについてはパッケージ名を省略しているので、`ggplot2` を読み込む必要がある。  
+　また、ネイティブパイプ演算子 `|>` を使っている。`magrittr` パッケージのパイプ演算子 `%>%` に置き換えても処理できるが、その場合は `magrittr` を読み込む必要がある。  
+<br>
+
+
+## n分木の作成
+
+　「上から下」また「左から右」方向に欠損なくノード(要素)が並ぶn分木のグラフを作成する。  
+　ノードごとに分岐数が異なるツリーは扱わない。  
+<br>
+
+
+### 座標計算用の関数
+
+　まずは、作図に利用する関数を実装しておく。  
+<br>
+
+　ノードの深さをカウントする関数を作成する。
+
+```{r}
+# 深さカウント関数を作成
+count_depth <- function(index, base, depth_cnt = 0) {
+  
+  # 親インデックスを計算
+  parent_index <- ceiling(index / base) - 1
+  
+  # 深さをカウント
+  depth_cnt <- depth_cnt + 1
+  
+  # 親が根なら終了
+  if(parent_index <= 0) return(depth_cnt)
+  
+  # 深さを計算
+  depth_cnt <- count_depth(parent_index, base, depth_cnt)
+  
+  # 深さを出力
+  return(depth_cnt)
+}
+
+# 確認
+count_depth(index = 8, base = 2, depth_cnt = 0)
+```
+
+　深さを求めるインデックス $i$ と分岐数 $b$ を受け取り、親ノードのインデックス $j = \lceil \frac{i}{b} \rceil - 1$ を計算する。$\lceil x \rceil$ は、天井関数(`ceiling()`)で、$x$ 以上の最小の整数(小数点以下の切り上げ)を表す。  
+　親ノードが根ノードになるまで再帰的に処理して、親ノードの数を深さとして出力する。  
+
+　ノードインデックスを入力して、深さを出力する関数を作成する。
+
+```{r}
+# 深さ計算関数(スカラ)を作成
+index_to_depth <- function(index, base) {
+  
+  # 深さを作成
+  depth_cnt <- 0
+  
+  # 根なら終了
+  if(index == 0) return(depth_cnt)
+  
+  # 深さを計算
+  depth_cnt <- count_depth(index, base, depth_cnt)
+  
+  # 深さを出力
+  return(depth_cnt)
+}
+
+# 確認
+index_to_depth(index = 8, base = 2)
+```
+
+　ノードのインデックスを受け取り、`count_depth()` で深さをカウントして出力する。根ノード(インデックスが0)の場合は `0` を出力する。  
+
+　複数のインデックスを入力して、それぞれの深さを出力する関数を作成する。
+
+```{r}
+# 深さ計算関数(ベクトル)を作成
+depth <- function(index, base) {
+  
+  # 深さの受け皿を初期化
+  depth <- rep(0, times = length(index))
+  
+  # 要素ごとに処理
+  for(i in seq_along(index)) {
+    
+    # 深さを計算
+    depth[i] <- index_to_depth(index[i], base)
+  }
+  
+  # 深さを出力
+  return(depth)
+}
+
+# 確認
+depth(index = c(4, 8, 16), base = 2)
+```
+
+　複数個のインデックスをベクトルとして受け取り、それぞれ `index_to_depth()` で深さをカウントしてベクトルとして出力する。  
+<br>
+
+　ノードの深さを入力して、インデックスの最小値を出力する関数を作成する。
+
+```{r}
+# 最小インデックス計算関数(スカラ)を作成
+depth_to_min_index <- function(depth, base) {
+  
+  # インデックスの最小値を初期化
+  index <- 0
+  
+  # 根なら終了
+  if(depth == 0) return(index)
+  
+  # 深さごとに処理
+  for(h in 1:depth) {
+    
+    # インデックスの最小値を計算
+    index <- index * base + 1
+  }
+  
+  # 最小インデックスを出力
+  return(index)
+}
+
+# 確認
+depth_to_min_index(depth = 3, base = 2)
+```
+
+　ノードの深さ $h$ と分岐数 $b$ を受け取り、その深さにおける最小(左端)のノードのインデックス $k$ を計算して出力する。根ノード(深さが0)の場合は `0` を出力する。  
+　根ノード(深さが $h = 0$ のノード)のインデックスを $k^{(0)} = 0$ とすると、各深さのインデックスの最小値は $k^{(h)} = b k^{(h-1)} + 1$ で求まる。つまり、初期値を $k^{(0)} = 0$ として、1つ浅い深さ $h - 1$ におけるインデックスの最小値 $k^{(h-1)}$ を分岐数 $b$ 倍して $1$ を加えた値を、求めたい深さ $h$ 回繰り返して計算する。  
+
+　複数の深さを入力して、それぞれの最小インデックスを出力する関数を作成する。
+
+```{r}
+# 最小インデックス計算関数(ベクトル)を作成
+min_index <- function(depth, base) {
+  
+  # インデックスの受け皿を作成
+  index <- rep(0, times = length(depth))
+  
+  # 要素ごとに処理
+  for(i in seq_along(depth)) {
+    
+    # 最小インデックスを計算
+    index[i] <- depth_to_min_index(depth[i], base)
+  }
+  
+  # 最小インデックスを出力
+  return(index)
+}
+
+# 確認
+min_index(depth = c(2, 3, 4), base = 2)
+```
+
+　複数個の深さをベクトルとして受け取り、それぞれ `depth_to_min_index()` で最小インデックスを計算してベクトルとして出力する。  
+<br>
+
+
+### 作図
+
+　次は、用意した関数を使って各ノードやエッジの座標を求めて、ツリーを作成する。  
+<br>
+
+　ノード数を指定して、値を作成する。
+
+```{r}
+# 分岐数を指定
+b <- 2
+
+# ノード数を指定
+N <- 61
+
+# (簡易的に)値を作成
+a <- 1:N
+head(a)
+```
+
+　ノード(頂点・節)の数を整数 `N` として、`N` 個の値を数値(などの)ベクトル `a` として作成する。`a` のみが与えられる場合は、`a` の要素数を `N` とする。  
+
+　ノードの描画用のデータフレームを作成する。
+
+```{r}
+# ラベル位置の調整値を指定
+d <- 0.6
+
+# ノードの座標を作成
+node_df <- tibble::tibble(
+  value   = a, 
+  index   = 0:(N-1), 
+  depth   = depth(index, b), 
+  col_idx = index - min_index(depth, b) + 1, # 深さごとのノード番号
+  coord_x = (col_idx * 2 - 1) * 1/(min_index(depth+1, b) - min_index(depth, b)), 
+  label_offset = dplyr::case_when(
+    depth >= 5 ~ 0.5 - d, # 指定した深さ以降は全て指定した位置に配置:(深さと符号を指定)
+    (index-1)%%b <  0.5*b ~ 0.5 + d, # 中より左の分岐は左に配置
+    (index-1)%%b >= 0.5*b ~ 0.5 - d  # 中と右の分岐は右に配置
+  ) # ラベル位置を左右にズラす
+)
+node_df
+```
+
+　この例では、根ノードのインデックスを $i = 0$、深さを $h = 0$ とする。  
+
+　各ノード(要素) $v_i$ の値 $a_i$ とインデックス $i$ をデータフレームに格納して、深さ $h$ を `depth()` で計算する。  
+　各深さにおけるノード番号(位置)を $k$、左端のノードの(全体における)インデックスを $i^{(h)}_{(\mathrm{min})}$ で表すことにする。$i^{(h)}_{(\mathrm{min})}$ を `min_index()` で計算して、左からの位置は $k = i - i^{(h)}_{(\mathrm{min})} + 1$ で求まる。  
+　各分岐をシンメトリーに描画する場合は、深さごとに、ノード数個 $i^{(h+1)}_{(\mathrm{min})} - i^{(h)}_{(\mathrm{min})}$ に等間隔 $\frac{1}{i^{(h+1)}_{(\mathrm{min})} - i^{(h)}_{(\mathrm{min})}}$ に分割した $2 k - 1$ 番目の位置にノードを配置する。このとき、x軸の範囲は0から2になる。  
+　ラベル位置の調整用の値を作成する。この例では、インデックスが偶数の場合は左にズラすために0.5以上の値、奇数の場合は右にズラすために0.5以下の値を格納する。ただし、ノード数が多くなるとラベルが重なりやすくなるので、一定の深さ以降は一方向にズラす。  
+
+　エッジの描画用のデータフレームを作成する。
+
+```{r}
+# エッジの座標を作成
+edge_df <- dplyr::bind_rows(
+  # 子ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, 
+      node_type = "childe" # (確認用)
+    ), 
+  # 親ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, 
+      node_type = "parent", # (確認用)
+      depth   = depth - 1, 
+      index   = ceiling(index / b) - 1, 
+      col_idx = index - min_index(depth, b) + 1, # 深さごとのノード番号
+      coord_x = (col_idx * 2 - 1) * 1/(min_index(depth+1, b) - min_index(depth, b)), 
+    )
+) |> 
+  dplyr::select(!label_offset) |> 
+  dplyr::arrange(edge_id, depth)
+edge_df
+```
+
+　親子ノードを結ぶエッジ(辺・枝)の描画用に、子ノードのインデックスを $i$、親ノードのインデックスを $j$ として、子ノード $v_i$ と親ノード $v_j$ の座標データをそれぞれ作成して結合する。  
+　子ノードのデータは、各ノードのデータ `node_df` から根ノードのデータ(行)を取り除く。  
+　親ノードのデータは、各ノードのデータから根ノードのデータを取り除いて親ノードのデータを計算する。親ノードの深さは $h_{(\mathrm{parent})} = h_{(\mathrm{childe})} - 1$、インデックスは $j = \lceil \frac{i}{b} \rceil - 1$ で求まる。座標などは $j$ を用いて先ほどと同様にして計算する。  
+　元のノードのインデックスをエッジIDとする。  
+
+　nアレイツリーを作成する。
+
+```{r, fig.width=16, fig.height=8, dpi=100}
+# ツリーの高さを取得
+max_h <- depth(N-1, b)
+
+# 縦方向の余白の調整値を指定
+d <- 0.1
+
+# 二分木を作図
+ggplot() + 
+  geom_path(data = edge_df, 
+            mapping = aes(x = coord_x, y = depth, group = edge_id), 
+            linewidth = 1) + # エッジ
+  geom_point(data = node_df, 
+             mapping = aes(x = coord_x, y = depth), 
+             size = 10, shape = "circle filled", fill = "white", stroke = 1) + # ノード
+  # geom_text(data = node_df, 
+  #           mapping = aes(x = coord_x, y = depth, label = value), 
+  #           size = 5) + # 値ラベル
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = paste0("a[", index, "]")), parse = TRUE, 
+            size = 4) + # 要素ラベル
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
+            size = 4, vjust = -1.5, color = "blue") + # 位置ラベル
+  scale_x_continuous(labels = NULL, name = "") + 
+  scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
+  coord_cartesian(xlim = c(0, 2), ylim = c(max_h+d, -d)) + # 表示範囲
+  labs(title = paste0(b, "-ary tree"), 
+       subtitle = paste0("height = ", max_h), 
+       y = "depth")
+```
+
+　エッジとして `geom_path()` で線分を描画する。線分間が繋がらないように、`group` 引数にエッジIDを指定する。  
+　ノードとして `geom_point()` で点を描画する。枠線と枠内を色分けする場合は、`shape` 引数に `"*** filled"` の形状を指定する。  
+　ラベルを `geom_text()` でテキストを描画する。ノードやエッジと重ならないように表示する場合は、`hjust, vjust` 引数に値を指定する。この例では、深さが4まではインデックスが偶数なら左、奇数なら右に、深さが5からは全て右にズラしている。  
+　深さ(y軸の値)が大きくなるほど下になるように、`scale_y_reverse()` でy軸を反転する。  
+<br>
+
+　他の分岐数のツリーも同様にして作成できる。
+
+```{r, echo=FALSE, fig.width=24, fig.height=8, dpi=100}
+### 資料作成用:(設定の変更)
+
+# 分岐数を指定
+b <- 3
+
+# ノード数を指定
+N <- 61
+
+# (簡易的に)値を作成
+a <- 1:N
+
+# ノードの座標を作成
+d <- 0.6
+node_df <- tibble::tibble(
+  value   = a, 
+  index   = 0:(N-1), 
+  depth   = depth(index, b), 
+  col_idx = index - min_index(depth, b) + 1, # 深さごとのノード番号
+  coord_x = (col_idx * 2 - 1) * 1/(min_index(depth+1, b) - min_index(depth, b)), 
+  label_offset = dplyr::case_when(
+    depth >= 4 ~ 0.5 - d, # 指定した深さ以降は全て指定した位置に配置:(深さと符号を指定)
+    (index-1)%%b <  0.5*b ~ 0.5 + d, # 中より左の分岐は左に配置
+    (index-1)%%b >= 0.5*b ~ 0.5 - d  # 中と右の分岐は右に配置
+  ) # ラベル位置を左右にズラす
+)
+
+# エッジの座標を作成
+edge_df <- dplyr::bind_rows(
+  # 子ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, 
+      node_type = "childe" # (確認用)
+    ), 
+  # 親ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, 
+      node_type = "parent", # (確認用)
+      depth   = depth - 1, 
+      index   = ceiling(index / b) - 1, 
+      col_idx = index - min_index(depth, b) + 1, # 深さごとのノード番号
+      coord_x = (col_idx * 2 - 1) * 1/(min_index(depth+1, b) - min_index(depth, b)), 
+    )
+) |> 
+  dplyr::select(!label_offset) |> 
+  dplyr::arrange(edge_id, depth)
+
+# ツリーの高さを取得
+max_h <- depth(N-1, b)
+
+# 二分木を作図
+d <- 0.1
+ggplot() + 
+  geom_path(data = edge_df, 
+            mapping = aes(x = coord_x, y = depth, group = edge_id), 
+            linewidth = 1) + # エッジ
+  geom_point(data = node_df, 
+             mapping = aes(x = coord_x, y = depth), 
+             size = 10, shape = "circle filled", fill = "white", stroke = 1) + # ノード
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = paste0("a[", index, "]")), parse = TRUE, 
+            size = 4) + # 要素ラベル
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
+            size = 4, vjust = -1.5, color = "blue") + # 位置ラベル
+  scale_x_continuous(labels = NULL, name = "") + 
+  scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
+  coord_cartesian(xlim = c(0, 2), ylim = c(max_h+d, -d)) + # 表示範囲
+  labs(title = paste0(b, "-ary tree"), 
+       subtitle = paste0("height = ", max_h), 
+       y = "depth")
+```
+
+```{r, echo=FALSE, fig.width=24, fig.height=8, dpi=100}
+### 資料作成用:(設定の変更)
+
+# 分岐数を指定
+b <- 4
+
+# ノード数を指定
+N <- 61
+
+# (簡易的に)値を作成
+a <- 1:N
+
+# ノードの座標を作成
+d <- 0.6
+node_df <- tibble::tibble(
+  value   = a, 
+  index   = 0:(N-1), 
+  depth   = depth(index, b), 
+  col_idx = index - min_index(depth, b) + 1, # 深さごとのノード番号
+  coord_x = (col_idx * 2 - 1) * 1/(min_index(depth+1, b) - min_index(depth, b)), 
+  label_offset = dplyr::case_when(
+    depth >= 3 ~ 0.5 - d, # 指定した深さ以降は全て指定した位置に配置:(深さと符号を指定)
+    (index-1)%%b <  0.5*b ~ 0.5 + d, # 中より左の分岐は左に配置
+    (index-1)%%b >= 0.5*b ~ 0.5 - d  # 中と右の分岐は右に配置
+  ) # ラベル位置を左右にズラす
+)
+
+# エッジの座標を作成
+edge_df <- dplyr::bind_rows(
+  # 子ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, 
+      node_type = "childe" # (確認用)
+    ), 
+  # 親ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, 
+      node_type = "parent", # (確認用)
+      depth   = depth - 1, 
+      index   = ceiling(index / b) - 1, 
+      col_idx = index - min_index(depth, b) + 1, # 深さごとのノード番号
+      coord_x = (col_idx * 2 - 1) * 1/(min_index(depth+1, b) - min_index(depth, b)), 
+    )
+) |> 
+  dplyr::select(!label_offset) |> 
+  dplyr::arrange(edge_id, depth)
+
+# ツリーの高さを取得
+max_h <- depth(N-1, b)
+
+# 二分木を作図
+d <- 0.1
+ggplot() + 
+  geom_path(data = edge_df, 
+            mapping = aes(x = coord_x, y = depth, group = edge_id), 
+            linewidth = 1) + # エッジ
+  geom_point(data = node_df, 
+             mapping = aes(x = coord_x, y = depth), 
+             size = 10, shape = "circle filled", fill = "white", stroke = 1) + # ノード
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = paste0("a[", index, "]")), parse = TRUE, 
+            size = 4) + # 要素ラベル
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
+            size = 4, vjust = -1.5, color = "blue") + # 位置ラベル
+  scale_x_continuous(labels = NULL, name = "") + 
+  scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
+  coord_cartesian(xlim = c(0, 2), ylim = c(max_h+d, -d)) + # 表示範囲
+  labs(title = paste0(b, "-ary tree"), 
+       subtitle = paste0("height = ", max_h), 
+       y = "depth")
+```
+
+```{r, echo=FALSE, fig.width=24, fig.height=8, dpi=100}
+### 資料作成用:(設定の変更)
+
+# 分岐数を指定
+b <- 5
+
+# ノード数を指定
+N <- 61
+
+# (簡易的に)値を作成
+a <- 1:N
+
+# ノードの座標を作成
+d <- 0.6
+node_df <- tibble::tibble(
+  value   = a, 
+  index   = 0:(N-1), 
+  depth   = depth(index, b), 
+  col_idx = index - min_index(depth, b) + 1, # 深さごとのノード番号
+  coord_x = (col_idx * 2 - 1) * 1/(min_index(depth+1, b) - min_index(depth, b)), 
+  label_offset = dplyr::case_when(
+    depth >= 3 ~ 0.5 - d, # 指定した深さ以降は全て指定した位置に配置:(深さと符号を指定)
+    (index-1)%%b <  0.5*b ~ 0.5 + d, # 中より左の分岐は左に配置
+    (index-1)%%b >= 0.5*b ~ 0.5 - d  # 中と右の分岐は右に配置
+  ) # ラベル位置を左右にズラす
+)
+
+# エッジの座標を作成
+edge_df <- dplyr::bind_rows(
+  # 子ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, 
+      node_type = "childe" # (確認用)
+    ), 
+  # 親ノードの座標
+  node_df |> 
+    dplyr::filter(depth > 0) |> # 根を除去
+    dplyr::mutate(
+      edge_id   = index, 
+      node_type = "parent", # (確認用)
+      depth   = depth - 1, 
+      index   = ceiling(index / b) - 1, 
+      col_idx = index - min_index(depth, b) + 1, # 深さごとのノード番号
+      coord_x = (col_idx * 2 - 1) * 1/(min_index(depth+1, b) - min_index(depth, b)), 
+    )
+) |> 
+  dplyr::select(!label_offset) |> 
+  dplyr::arrange(edge_id, depth)
+
+# ツリーの高さを取得
+max_h <- depth(N-1, b)
+
+# 二分木を作図
+d <- 0.1
+ggplot() + 
+  geom_path(data = edge_df, 
+            mapping = aes(x = coord_x, y = depth, group = edge_id), 
+            linewidth = 1) + # エッジ
+  geom_point(data = node_df, 
+             mapping = aes(x = coord_x, y = depth), 
+             size = 10, shape = "circle filled", fill = "white", stroke = 1) + # ノード
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = paste0("a[", index, "]")), parse = TRUE, 
+            size = 4) + # 要素ラベル
+  geom_text(data = node_df, 
+            mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
+            size = 4, vjust = -1.5, color = "blue") + # 位置ラベル
+  scale_x_continuous(labels = NULL, name = "") + 
+  scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
+  coord_cartesian(xlim = c(0, 2), ylim = c(max_h+d, -d)) + # 表示範囲
+  labs(title = paste0(b, "-ary tree"), 
+       subtitle = paste0("height = ", max_h), 
+       y = "depth")
+```
+
+　分岐数 `b` の他に、ラベル位置などの設定(調整値)などを変更している。  
+<br>
+
+　この記事では、n分木のグラフを作成した。  
+<br>
+
+
+# 参考文献
+
+- 大槻兼資(著), 秋葉拓哉(監修)『問題解決力を鍛える！　アルゴリズムとデータ構造』講談社サイエンティク, 2021年.
 
 

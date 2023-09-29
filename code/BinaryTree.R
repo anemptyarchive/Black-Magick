@@ -67,7 +67,8 @@ d <- 0.1
 # 二分木を作図
 ggplot() + 
   geom_path(data = edge_df, 
-            mapping = aes(x = coord_x, y = depth, group = edge_id)) + # エッジ
+            mapping = aes(x = coord_x, y = depth, group = edge_id), 
+            linewidth = 1) + # エッジ
   geom_point(data = node_df, 
              mapping = aes(x = coord_x, y = depth), 
              size = 10, shape = "circle filled", fill = "white", stroke = 1) + # ノード
@@ -76,10 +77,10 @@ ggplot() +
             size = 5) + # 値ラベル
   geom_text(data = node_df, 
             mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
-            size = 4, vjust = -2, color = "red") + # 位置ラベル
+            size = 4, vjust = -2, color = "blue") + # 位置ラベル
   scale_x_continuous(labels = NULL, name = "") + 
-  scale_y_reverse(breaks = 0:max_h, limits = c(max_h+d, -d), minor_breaks = FALSE) + 
-  coord_cartesian(xlim = c(0, 1)) + 
+  scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
+  coord_cartesian(xlim = c(0, 1), ylim = c(max_h+d, -d)) + 
   labs(title = "binary tree", 
        subtitle = paste0("height = ", max_h), 
        y = "depth")
@@ -189,7 +190,8 @@ max_h <- floor(log2(N))
 d <- 0.1
 ggplot() + 
   geom_path(data = edge_df, 
-            mapping = aes(x = coord_x, y = depth, group = edge_id)) + # エッジ
+            mapping = aes(x = coord_x, y = depth, group = edge_id), 
+            linewidth = 1) + # エッジ
   geom_point(data = node_df, 
              mapping = aes(x = coord_x, y = depth), 
              size = 12, shape = "circle filled", fill = "white", stroke = 1, na.rm = TRUE) + # ノード
@@ -198,10 +200,10 @@ ggplot() +
             size = 5, na.rm = TRUE) + # 値ラベル
   geom_text(data = node_df, 
             mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
-            size = 4, vjust = -2, color = "red", na.rm = TRUE) + # 位置ラベル
+            size = 4, vjust = -2, color = "blue", na.rm = TRUE) + # 位置ラベル
   scale_x_continuous(labels = NULL, name = "") + 
-  scale_y_reverse(breaks = 0:max_h, limits = c(max_h+d, -d), minor_breaks = FALSE) + 
-  coord_cartesian(xlim = c(0, 1)) + 
+  scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
+  coord_cartesian(xlim = c(0, 1), ylim = c(max_h+d, -d)) + 
   labs(title = "binary tree", 
        subtitle = "subtree", 
        y = "depth")
@@ -273,7 +275,8 @@ max_h <- max(node_df[["depth"]], na.rm = TRUE)
 d <- 0.1
 ggplot() + 
   geom_path(data = edge_df, 
-            mapping = aes(x = coord_x, y = depth, group = edge_id)) + # エッジ
+            mapping = aes(x = coord_x, y = depth, group = edge_id), 
+            linewidth = 1) + # エッジ
   geom_point(data = node_df, 
              mapping = aes(x = coord_x, y = depth), 
              size = 12, shape = "circle filled", fill = "white", stroke = 1, na.rm = TRUE) + # ノード
@@ -282,10 +285,10 @@ ggplot() +
             size = 5, na.rm = TRUE) + # 値ラベル
   geom_text(data = node_df, 
             mapping = aes(x = coord_x, y = depth, label = index, hjust = label_offset), 
-            size = 4, vjust = -2, color = "red", na.rm = TRUE) + # 位置ラベル
+            size = 4, vjust = -2, color = "blue", na.rm = TRUE) + # 位置ラベル
   scale_x_continuous(labels = NULL, name = "") + 
-  scale_y_reverse(breaks = 0:max_h, limits = c(max_h+d, -d), minor_breaks = FALSE) + 
-  coord_cartesian(xlim = c(0, 1)) + 
+  scale_y_reverse(breaks = 0:max_h, minor_breaks = FALSE) + 
+  coord_cartesian(xlim = c(0, 1), ylim = c(max_h+d, -d)) + 
   labs(title = "binary tree", 
        subtitle = paste0("height = ", max_h), 
        y = "depth")

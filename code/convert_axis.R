@@ -50,11 +50,11 @@ for(i in 1:frame_num) {
   # ラベル用の文字列を作成
   coord_label <- paste0(
     "list(", 
-    "r == ", r, ", ", 
-    "(list(x, y)) == (list(", 
-    round(point_df[["x"]], digits = 2), ", ", 
-    round(point_df[["y"]], digits = 2), 
-    "))", 
+      "r == ", r, ", ", 
+      "(list(x, y)) == (list(", 
+        round(point_df[["x"]], digits = 2), ", ", 
+        round(point_df[["y"]], digits = 2), 
+      "))", 
     ")"
   )
   
@@ -233,26 +233,30 @@ grid_size <- ceiling(abs(r) / tick_minor_val) * tick_minor_val
 
 # 変換軸のグリッド線の座標を作成
 grid_x_df <- tidyr::expand_grid(
-  x = seq(from = -grid_size, to = grid_size-tick_minor_val, by = tick_minor_val), 
+  x = seq(from = -grid_size, to = grid_size-tick_minor_val, by = tick_minor_val), # 直交座標における目盛値
   u = seq(from = pi, to = 1.5*pi, length.out = 91) # ラジアン
 ) |> # 目盛線ごとにラジアンを複製
   dplyr::mutate(
+    x0    = grid_size, 
+    y0    = grid_size, 
     arc_r = grid_size - x, 
-    arc_x = grid_size + arc_r * cos(u), 
-    arc_y = grid_size + arc_r * sin(u), 
-    grid   = dplyr::if_else(
+    arc_x = x0 + arc_r * cos(u), 
+    arc_y = y0 + arc_r * sin(u), 
+    grid  = dplyr::if_else(
       x%%tick_major_val == 0, true = "major", false = "minor"
     ) # 主・補助目盛の書き分け用
   )
 grid_y_df <- tidyr::expand_grid(
-  y = seq(from = -grid_size+tick_minor_val, to = grid_size, by = tick_minor_val), 
+  y = seq(from = -grid_size+tick_minor_val, to = grid_size, by = tick_minor_val), # 直交座標における目盛値
   u = seq(from = 0, to = 0.5*pi, length.out = 91) # ラジアン
 ) |> # 目盛線ごとにラジアンを複製
   dplyr::mutate(
+    x0    = -grid_size, 
+    y0    = -grid_size, 
     arc_r = grid_size + y, 
-    arc_x = -grid_size + arc_r * cos(u), 
-    arc_y = -grid_size + arc_r * sin(u), 
-    grid   = dplyr::if_else(
+    arc_x = x0 + arc_r * cos(u), 
+    arc_y = y0 + arc_r * sin(u), 
+    grid  = dplyr::if_else(
       y%%tick_major_val == 0, true = "major", false = "minor"
     ) # 主・補助目盛の書き分け用
   )
@@ -313,11 +317,14 @@ for(i in 1:frame_num) {
          x = expression(x == r ~ cos~theta), 
          y = expression(y == r ~ sin~theta))
   
-  # 軸変換曲線の座標を作成
-  convert_x_df <- tibble::tibble(
+  # 変換曲線の座標を作成
+  arc_x_df <- tibble::tibble(
     u     = seq(from = pi, to = 1.5*pi, length.out = 91), # ラジアン
-    arc_x = grid_size + abs(r*cos(t_val) - grid_size) * cos(u), 
-    arc_y = grid_size + abs(r*cos(t_val) - grid_size) * sin(u)
+    x0    = grid_size, 
+    y0    = grid_size, 
+    arc_r = abs(r*cos(t_val) - grid_size), 
+    arc_x = x0 + arc_r * cos(u), 
+    arc_y = y0 + arc_r * sin(u)
   )
   
   # x軸の変換を作図
@@ -328,7 +335,7 @@ for(i in 1:frame_num) {
     geom_segment(mapping = aes(x = c(-Inf, 0), y = c(0, -Inf), 
                                xend = c(Inf, 0), yend = c(0, Inf)), 
                  arrow = arrow(length = unit(10, units = "pt"), ends = "last")) + # x・x軸線
-    geom_line(data = convert_x_df, 
+    geom_line(data = arc_x_df, 
               mapping = aes(x = arc_x, y = arc_y), 
               color = "blue", linewidth = 1, linetype = "dotted") + # 変換曲線
     geom_segment(data = point_df, 
@@ -352,11 +359,14 @@ for(i in 1:frame_num) {
          x = expression(x), 
          y = expression(x))
   
-  # 軸変換曲線の座標を作成
-  convert_y_df <- tibble::tibble(
+  # 変換曲線の座標を作成
+  arc_y_df <- tibble::tibble(
     u     = seq(from = 0, to = 0.5*pi, length.out = 91), # ラジアン
-    arc_x = -grid_size + abs(r*sin(t_val) + grid_size) * cos(u), 
-    arc_y = -grid_size + abs(r*sin(t_val) + grid_size) * sin(u)
+    x0    = -grid_size, 
+    y0    = -grid_size, 
+    arc_r = abs(r*sin(t_val) + grid_size), 
+    arc_x = x0 + arc_r * cos(u), 
+    arc_y = y0 + arc_r * sin(u)
   )
   
   # y軸の変換を作図
@@ -367,7 +377,7 @@ for(i in 1:frame_num) {
     geom_segment(mapping = aes(x = c(-Inf, 0), y = c(0, -Inf), 
                                xend = c(Inf, 0), yend = c(0, Inf)), 
                  arrow = arrow(length = unit(10, units = "pt"), ends = "last")) + # y・y軸線
-    geom_line(data = convert_y_df, 
+    geom_line(data = arc_y_df, 
               mapping = aes(x = arc_x, y = arc_y), 
               color = "red", linewidth = 1, linetype = "dotted") + # 変換曲線
     geom_segment(data = point_df, 
@@ -511,12 +521,12 @@ for(i in 1:frame_num) {
   # ラベル用の文字列を作成
   coord_label <- paste0(
     "list(", 
-    "a == ", a, ", ", 
-    "b == ", b, ", ", 
-    "(list(x, y)) == (list(", 
-    round(point_df[["x"]], digits = 2), ", ", 
-    round(point_df[["y"]], digits = 2), 
-    "))", 
+      "a == ", a, ", ", 
+      "b == ", b, ", ", 
+      "(list(x, y)) == (list(", 
+        round(point_df[["x"]], digits = 2), ", ", 
+        round(point_df[["y"]], digits = 2), 
+      "))", 
     ")"
   )
   
@@ -725,19 +735,21 @@ grid_y_size <- ceiling(abs(b) / tick_y_minor_val) * tick_y_minor_val
 
 # 変換軸のグリッド線の座標を作成
 grid_x_df <- tidyr::expand_grid(
-  x = seq(from = -grid_x_size, to = grid_x_size-tick_x_minor_val, by = tick_x_minor_val), 
+  x = seq(from = -grid_x_size, to = grid_x_size-tick_x_minor_val, by = tick_x_minor_val), # 直交座標における目盛値
   u = seq(from = pi, to = 1.5*pi, length.out = 91) # ラジアン
 ) |> # 目盛線ごとにラジアンを複製
   dplyr::mutate(
+    x0    = grid_size, 
+    y0    = grid_size, 
     arc_r = grid_x_size - x, 
-    arc_x = grid_x_size + arc_r * cos(u), 
-    arc_y = grid_x_size + arc_r * sin(u), 
-    grid   = dplyr::if_else(
+    arc_x = x0 + arc_r * cos(u), 
+    arc_y = y0 + arc_r * sin(u), 
+    grid  = dplyr::if_else(
       x%%tick_x_major_val == 0, true = "major", false = "minor"
     ) # 主・補助目盛の書き分け用
   )
 grid_y_df <- tidyr::expand_grid(
-  y = seq(from = -grid_y_size+tick_y_minor_val, to = grid_y_size, by = tick_y_minor_val), 
+  y = seq(from = -grid_y_size+tick_y_minor_val, to = grid_y_size, by = tick_y_minor_val), # 直交座標における目盛値
   u = seq(from = 0, to = 0.5*pi, length.out = 91) # ラジアン
 ) |> # 目盛線ごとにラジアンを複製
   dplyr::mutate(
@@ -778,12 +790,12 @@ for(i in 1:frame_num) {
   # ラベル用の文字列を作成
   coord_label <- paste0(
     "list(", 
-    "a == ", a, ", ", 
-    "b == ", b, ", ", 
-    "(list(x, y)) == (list(", 
-    round(point_df[["x"]], digits = 2), ", ", 
-    round(point_df[["y"]], digits = 2), 
-    "))", 
+      "a == ", a, ", ", 
+      "b == ", b, ", ", 
+      "(list(x, y)) == (list(", 
+        round(point_df[["x"]], digits = 2), ", ", 
+        round(point_df[["y"]], digits = 2), 
+      "))", 
     ")"
   )
   
@@ -825,11 +837,14 @@ for(i in 1:frame_num) {
          x = expression(x == a ~ cos~theta), 
          y = expression(y == b ~ sin~theta))
   
-  # 軸変換曲線の座標を作成
-  convert_x_df <- tibble::tibble(
+  # 変換曲線の座標を作成
+  arc_x_df <- tibble::tibble(
     u     = seq(from = pi, to = 1.5*pi, length.out = 91), # ラジアン
-    arc_x = grid_x_size + abs(a*cos(t_val) - grid_x_size) * cos(u), 
-    arc_y = grid_x_size + abs(a*cos(t_val) - grid_x_size) * sin(u)
+    x0    = grid_x_size, 
+    y0    = grid_x_size, 
+    arc_r = abs(a*cos(t_val) - grid_x_size), 
+    arc_x = x0 + arc_r * cos(u), 
+    arc_y = y0 + arc_r * sin(u)
   )
   
   # x軸の変換を作図
@@ -840,7 +855,7 @@ for(i in 1:frame_num) {
     geom_segment(mapping = aes(x = c(-Inf, 0), y = c(0, -Inf), 
                                xend = c(Inf, 0), yend = c(0, Inf)), 
                  arrow = arrow(length = unit(10, units = "pt"), ends = "last")) + # x・x軸線
-    geom_line(data = convert_x_df, 
+    geom_line(data = arc_x_df, 
               mapping = aes(x = arc_x, y = arc_y), 
               color = "blue", linewidth = 1, linetype = "dotted") + # 変換曲線
     geom_segment(data = point_df, 
@@ -864,11 +879,14 @@ for(i in 1:frame_num) {
          x = expression(x), 
          y = expression(x))
   
-  # 軸変換曲線の座標を作成
-  convert_y_df <- tibble::tibble(
+  # 変換曲線の座標を作成
+  arc_y_df <- tibble::tibble(
     u     = seq(from = 0, to = 0.5*pi, length.out = 91), # ラジアン
-    arc_x = -grid_y_size + abs(b*sin(t_val) + grid_y_size) * cos(u), 
-    arc_y = -grid_y_size + abs(b*sin(t_val) + grid_y_size) * sin(u)
+    x0    = -grid_y_size, 
+    y0    = -grid_y_size, 
+    arc_r = abs(b*sin(t_val) + grid_y_size), 
+    arc_x = x0 + arc_r * cos(u), 
+    arc_y = y0 + arc_r * sin(u)
   )
   
   # y軸の変換を作図
@@ -879,7 +897,7 @@ for(i in 1:frame_num) {
     geom_segment(mapping = aes(x = c(-Inf, 0), y = c(0, -Inf), 
                                xend = c(Inf, 0), yend = c(0, Inf)), 
                  arrow = arrow(length = unit(10, units = "pt"), ends = "last")) + # y・y軸線
-    geom_line(data = convert_y_df, 
+    geom_line(data = arc_y_df, 
               mapping = aes(x = arc_x, y = arc_y), 
               color = "red", linewidth = 1, linetype = "dotted") + # 変換曲線
     geom_segment(data = point_df, 

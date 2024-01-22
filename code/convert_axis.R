@@ -322,7 +322,7 @@ for(i in 1:frame_num) {
     u     = seq(from = pi, to = 1.5*pi, length.out = 91), # ラジアン
     x0    = grid_size, 
     y0    = grid_size, 
-    arc_r = abs(r*cos(t_val) - grid_size), 
+    arc_r = -(r*cos(t_val) - grid_size), 
     arc_x = x0 + arc_r * cos(u), 
     arc_y = y0 + arc_r * sin(u)
   )
@@ -364,7 +364,7 @@ for(i in 1:frame_num) {
     u     = seq(from = 0, to = 0.5*pi, length.out = 91), # ラジアン
     x0    = -grid_size, 
     y0    = -grid_size, 
-    arc_r = abs(r*sin(t_val) + grid_size), 
+    arc_r = r*sin(t_val) + grid_size, 
     arc_x = x0 + arc_r * cos(u), 
     arc_y = y0 + arc_r * sin(u)
   )
@@ -739,8 +739,8 @@ grid_x_df <- tidyr::expand_grid(
   u = seq(from = pi, to = 1.5*pi, length.out = 91) # ラジアン
 ) |> # 目盛線ごとにラジアンを複製
   dplyr::mutate(
-    x0    = grid_size, 
-    y0    = grid_size, 
+    x0    = grid_x_size, 
+    y0    = grid_x_size, 
     arc_r = grid_x_size - x, 
     arc_x = x0 + arc_r * cos(u), 
     arc_y = y0 + arc_r * sin(u), 
@@ -753,10 +753,12 @@ grid_y_df <- tidyr::expand_grid(
   u = seq(from = 0, to = 0.5*pi, length.out = 91) # ラジアン
 ) |> # 目盛線ごとにラジアンを複製
   dplyr::mutate(
+    x0    = -grid_y_size, 
+    y0    = -grid_y_size, 
     arc_r = grid_y_size + y, 
-    arc_x = -grid_y_size + arc_r * cos(u), 
-    arc_y = -grid_y_size + arc_r * sin(u), 
-    grid   = dplyr::if_else(
+    arc_x = x0 + arc_r * cos(u), 
+    arc_y = y0 + arc_r * sin(u), 
+    grid  = dplyr::if_else(
       y%%tick_y_major_val == 0, true = "major", false = "minor"
     ) # 主・補助目盛の書き分け用
   )
@@ -842,7 +844,7 @@ for(i in 1:frame_num) {
     u     = seq(from = pi, to = 1.5*pi, length.out = 91), # ラジアン
     x0    = grid_x_size, 
     y0    = grid_x_size, 
-    arc_r = abs(a*cos(t_val) - grid_x_size), 
+    arc_r = -(a*cos(t_val) - grid_x_size), 
     arc_x = x0 + arc_r * cos(u), 
     arc_y = y0 + arc_r * sin(u)
   )
@@ -884,7 +886,7 @@ for(i in 1:frame_num) {
     u     = seq(from = 0, to = 0.5*pi, length.out = 91), # ラジアン
     x0    = -grid_y_size, 
     y0    = -grid_y_size, 
-    arc_r = abs(b*sin(t_val) + grid_y_size), 
+    arc_r = b*sin(t_val) + grid_y_size, 
     arc_x = x0 + arc_r * cos(u), 
     arc_y = y0 + arc_r * sin(u)
   )

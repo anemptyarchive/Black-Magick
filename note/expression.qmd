@@ -1,0 +1,557 @@
+---
+title:    "expression関数"
+subtitle: "黒魔術シリーズ"
+author: "[@anemptyarchive](https://www.anarchive-beta.com/)"
+date-modified: "`r Sys.time()`"
+date-format:   "YYYY-MM-DD HH:mm:ss"
+format: 
+  html: 
+    toc:          true
+    toc-location: left
+    toc-depth:    5
+    toc-expand:   3
+    number-sections: true
+    number-depth:    3
+    highlight-style: github
+execute: 
+  message: false
+  warning: false
+  error:   true
+---
+
+----
+
+【編集履歴】
+
+- 2024/12/03：「expression関数による数式表現」を追加
+
+----
+
+
+# expression関数で微妙に凝った数式を表示したい
+
+　`base` パッケージ(組み込み関数)の `expression()` を使って図に数式を描画できる。この記事では、小細工(黒魔術)的に処理するexpression記法による数式表現を備忘録として書いておく。  
+<br>
+
+
+## expression記法
+
+　expression関数(expression class・式型)の記法による数式表現のあれこれ。  
+<br>
+
+
+### 有効数字
+
+　数値型から式型への変換時の挙動の確認しておく。
+
+```{r}
+# 式型に変換
+expression(1.00)
+```
+
+　この時点で小数点以下の末尾の `0` が消えている。  
+
+　数値型を使って数式を指定すると有効数字が表示されない。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression(0.00), 
+  expression(-10.0), 
+  expression(x == 1.20)
+)
+
+# 入力コマンドを指定
+chr_vec <- c(
+  "0.00", 
+  "-10.0", 
+  "x == 1.20"
+)
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec) # 出力
+```
+
+　小数点以下の末尾の $0$ は省略される。  
+
+　文字列型を使って数式を指定すると有効数字を表示できる。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression("0.00"), 
+  expression("-10.0"), 
+  expression(x == "1.20")
+)
+
+# 入力コマンドを指定
+chr_vec <- c(
+  '"0.00"', 
+  '"-10.0"', 
+  'x == "1.20"'
+)
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec) # 出力
+```
+
+　数値型から文字列型に変換しておく、クォーテーション `"` で挟んでおくと省略されない。  
+<br>
+
+
+### プラスマイナス
+
+　エラーになる挙動を確認しておく。
+
+```{r}
+#| eval: false
+
+expression(%+-% b)
+```
+
+```
+Error: unexpected SPECIAL in "expression(%+-%"
+```
+
+<br>
+
+　プラスマイナスの記号 $\pm$ は `%+-%` で表示できる。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression(a %+-% b), 
+  expression({} %+-% a), 
+  expression(x == {} %+-% a), 
+  expression(phantom() %+-% a), 
+  expression(x == phantom() %+-% a)
+)
+
+# 入力コマンドを抽出
+chr_vec <- exp_vec |> 
+  as.character() |> 
+  gsub(pattern = "\n", replacement = "") # `{}` が `'{\n}'` になる対策
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec) # 出力
+```
+
+　$a \pm b$ の形の場合は式の通りに記述できる。$\pm a$ の形の場合は `{}` や `phantom()` を使う必要がある。  
+<br>
+
+
+### 絶対値
+
+　絶対値 $|x|$ や行列式 $|\mathbf{X}|$ の記号 $|$ がないので、文字列 `"|"` を変数と結合して表示する。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression("|" * x * "|"), 
+  expression(paste("|", x, "|")), 
+  expression(group("|", x, "|"))
+)
+
+# 入力コマンドを抽出
+chr_vec <- exp_vec |> 
+  as.character() |> 
+  gsub(pattern = "\n", replacement = "") # `{}` が `'{\n}'` になる対策
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec) # 出力
+```
+
+　`*` や `paste()`、`group()` を使って変数と記号を結合する必要がある。  
+<br>
+
+
+### ノルム
+
+　ノルム $\|x\|$ の記号 $\|$ がないので、文字列 `"||"` を変数と結合して表示する。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression("||" * x * "||"), 
+  expression(paste("||", x, "||")), 
+  expression(group("||", x, "||")), 
+  expression(group("|", group("|", x, "|"), "|"))
+)
+
+# 入力コマンドを抽出
+chr_vec <- exp_vec |> 
+  as.character() |> 
+  gsub(pattern = "\n", replacement = "") # `{}` が `'{\n}'` になる対策
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec) # 出力
+```
+
+　`*` や `paste()` を使って変数と記号を結合する必要がある。`group()` では複数文字を扱えないらしい。  
+<br>
+
+
+### 変数を並べる
+
+　変数をカンマ区切りで並べる。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression(list(x, y, z)), 
+  expression((list(x, y, z))), 
+  expression({}(x, y, z)), 
+  expression(f(x, y, z)), 
+  expression(p(x, y, z))
+)
+
+# 入力コマンドを抽出
+chr_vec <- exp_vec |> 
+  as.character() |> 
+  gsub(pattern = "\n", replacement = "") # `{}` が `'{\n}'` になる対策
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec) # 出力
+```
+
+　`list()` を使って変数などを並べて表示できる。または、任意の文字や `{}` と丸括弧 `()` でも並べられる。  
+<br>
+
+　`list()` を使わない場合の挙動を確認する。
+
+```{r}
+# 数式を指定
+exp_vec <- expression(x, y, z)
+exp_vec; length(exp_vec)
+```
+
+　3つの要素として扱われている。  
+<br>
+
+
+### 等式を並べる
+
+　エラーになる挙動を確認しておく。
+
+```{r}
+#| eval: false
+
+expression(x == y == z)
+```
+
+```
+Error: unexpected '==' in "expression(x == y =="
+```
+
+　複数個の等号 `==` は使えないらしい。  
+
+　変数を複数の等号や不等号で並べる。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression(paste(x == y, {} == z)), 
+  expression(paste(0 <= x, {} < 1)), 
+  expression(paste(x == y, phantom() == z)), 
+  expression(paste(0 <= x, phantom() < 1))
+)
+
+# 入力コマンドを抽出
+chr_vec <- exp_vec |> 
+  as.character() |> 
+  gsub(pattern = "\n", replacement = "") # `{}` が `'{\n}'` になる対策
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec) # 出力
+```
+
+　等式の一方の辺を `{}` や `phantom()` で空白にしておき、`paste()` を使って複数個の等式などを結合する必要がある。  
+<br>
+
+　`~` を使って並べられることもある。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression(a == b ~ x == y), 
+  expression(cos~2*theta == 2~cos^2~theta - 1 == 1 - 2~sin^2~theta), 
+  expression(0 <= cos^{-1}~x <= pi)
+)
+
+# 入力コマンドを抽出
+chr_vec <- exp_vec |> 
+  as.character() |> 
+  gsub(pattern = "\n", replacement = "") |> # `{}` が `'{\n}'` になる対策
+  gsub(pattern = "  ", replacement = "") # `{x}` が `'{\n    x\n}'` になる対策
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec, adj = c(0.5, 0)) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec, adj = c(0.5, 1)) # 出力
+```
+
+　`~` を使ってスペースで等式などを結合できる。式によっては `paste()` を使わずに結合できる。  
+<br>
+
+
+### 条件付き分布
+
+　条件付き分布 $p(x \mid \mu, \sigma)$ の記号 $\mid$ がないので、文字列 `"|"` を変数と結合して表示する。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_vec <- c(
+  expression(x * "|" * y), 
+  expression(x ~ "|" ~ y), 
+  expression(paste(x, "|", y)), 
+  expression(paste(x, phantom(.), "|", phantom(.), y)), 
+  expression(x * "|" * list(mu, sigma)), 
+  expression(x ~ "|" ~ list(mu, sigma)), 
+  #expression(paste(x, "|", list(mu, sigma))), 
+  #expression(paste(x, phantom(.), "|", phantom(.), list(mu, sigma))), 
+  expression(p(x * "|" * mu, sigma)), 
+  expression(p(x ~ "|" ~ mu, sigma))
+)
+
+# 入力コマンドを抽出
+chr_vec <- exp_vec |> 
+  as.character() |> 
+  gsub(pattern = "\n", replacement = "") # `{}` が `'{\n}'` になる対策
+
+# 表示数を取得
+lbl_num <- length(exp_vec)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 3), ylim = c(0, lbl_num+1), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2), labels = c("input", "output"))
+axis(side = 2, at = 1:lbl_num, labels = rep("", times = lbl_num))
+text(x = 1, y = lbl_num:1, labels = chr_vec) # 入力
+text(x = 2, y = lbl_num:1, labels = exp_vec) # 出力
+```
+
+　「絶対値」と同様に、`*, ~` や `paste()` を使って変数と記号を結合する必要がある。確率変数や条件が複数の場合は「変数を並べる」と同様にして並べられる。  
+<br>
+
+
+### 改行
+
+　エラーになる挙動を確認しておく。
+
+```{r}
+#| eval: false
+
+expression(x \n y)
+```
+
+```
+Error: unexpected '\\' in "expression(x \"
+```
+
+```{r}
+#| eval: false
+
+expression(x <br> y)
+```
+
+```
+Error: unexpected '>' in "expression(x <br>"
+```
+
+　`\n` や `<br>` では改行できない。
+
+　2行の場合は、別の目的の関数を流用することでなんとかできる。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_val <- expression(
+  atop(
+    x[i] %~% N(mu, sigma), 
+    list(i == 1, ldots, n, mu == 0, sigma == 1)
+  )
+)
+
+# 入力コマンドを抽出
+chr_val <- exp_val |> 
+  as.character() |> 
+  gsub(pattern = "\n", replacement = "") # `{}` が `'{\n}'` になる対策
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 2), ylim = c(0, 3), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = 1, labels = "")
+axis(side = 2, at = c(1, 2), labels = c("output", "input"))
+text(x = 1, y = 2, labels = chr_val) # 入力
+text(x = 1, y = 1, labels = exp_val) # 出力
+```
+
+　`atop()` を使って分数のように表示することで、改行を表現できる。  
+<br>
+
+　複数行の場合は、手打ちでなんとかする。
+
+```{r}
+#| fig-width:  8
+#| fig-height: 6
+#| fig-dpi:    100
+
+# 数式を指定
+exp_val1 <- expression(x[i] %~% N(mu, sigma))
+exp_val2 <- expression(list(i == 1, ldots, n))
+exp_val3 <- expression(list(mu == 0, sigma == 1))
+
+# 入力コマンドを抽出
+chr_val1 <- as.character(exp_val1)
+chr_val2 <- as.character(exp_val2)
+chr_val3 <- as.character(exp_val3)
+
+# 入出力を表示
+plot(x = 0, y = 0, type = "n", main = "expression()", 
+     xlim = c(0, 4), ylim = c(0, 3), xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+axis(side = 1, at = c(1, 2, 3), labels = c("adj = c(0, v)", "adj = c(0.5, v)", "adj = c(1, v)"))
+axis(side = 2, at = c(1, 2), labels = c("output", "input"))
+
+# 左揃え
+text(x = 1, y = 1, labels = exp_val1, adj = c(0, 0)) # 出力
+text(x = 1, y = 1, labels = exp_val2, adj = c(0, 1)) # 出力
+text(x = 1, y = 1, labels = exp_val3, adj = c(0, 2)) # 出力
+
+# 中央揃え
+text(x = 2, y = 2, labels = chr_val1, adj = c(0.5, 0)) # 入力
+text(x = 2, y = 2, labels = chr_val2, adj = c(0.5, 1)) # 入力
+text(x = 2, y = 2, labels = chr_val3, adj = c(0.5, 2)) # 入力
+text(x = 2, y = 1, labels = exp_val1, adj = c(0.5, 0)) # 出力
+text(x = 2, y = 1, labels = exp_val2, adj = c(0.5, 1)) # 出力
+text(x = 2, y = 1, labels = exp_val3, adj = c(0.5, 2)) # 出力
+
+# 右揃え
+text(x = 3, y = 1, labels = exp_val1, adj = c(1, 0)) # 出力
+text(x = 3, y = 1, labels = exp_val2, adj = c(1, 1)) # 出力
+text(x = 3, y = 1, labels = exp_val3, adj = c(1, 2)) # 出力
+```
+
+　`graphics` パッケージ(base plot)の `text()` だと `adj` 引数、`ggplot2` パッケージの `geom_text()` などだと `vjust` 引数でプロット位置 ( `y` 引数)に対する表示位置を調整することで、改行を表現できる。( `y` 引数による(見た目上の)プロット位置はy軸の範囲に依存するので、調整に用いるのは難しいと思われる。)  
+　`adj = c(h, v)` で指定し、`h` で横方向の表示位置(行頭揃え)、`v` で縦方向の表示位置(改行)を調整できる。  
+<br>
+
+　この記事では、expression記法による少し複雑な数式の表示方法を確認した。次の記事では、gganimateパッケージの利用時に値が変化する数式の表示方法を確認する。  
+<br>
+
+
+# gganimateパッケージで値が変化する数式を表示したい
+
+
+
+　この記事では、gganimateパッケージの利用時に値が変化する数式の表示方法を確認した。  
+<br>
+
+
+# 参考文献
+
+
+
+<br>
+
+

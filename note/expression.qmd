@@ -24,13 +24,14 @@ execute:
 【編集履歴】
 
 - 2024/12/03：「expression関数による数式表現」を追加
+- 2024/12/08：「gganimateによる数式の表示」を追加
 
 ----
 
 
 # expression関数で微妙に凝った数式を表示したい
 
-　`base` パッケージ(組み込み関数)の `expression()` を使って図に数式を描画できる。この記事では、小細工(黒魔術)的に処理するexpression記法による数式表現を備忘録として書いておく。  
+　`base` パッケージ(組み込み関数)の `expression()` を利用して図に数式を描画できる。この記事では、小細工(黒魔術)的に処理するexpression記法による数式表現を備忘録として書いておく。  
 <br>
 
 
@@ -536,13 +537,444 @@ text(x = 3, y = 1, labels = exp_val3, adj = c(1, 2)) # 出力
 　`adj = c(h, v)` で指定し、`h` で横方向の表示位置(行頭揃え)、`v` で縦方向の表示位置(改行)を調整できる。  
 <br>
 
-　この記事では、expression記法による少し複雑な数式の表示方法を確認した。次の記事では、gganimateパッケージの利用時に値が変化する数式の表示方法を確認する。  
+　この記事では、expression記法による少し複雑な数式の表示方法を確認した。次の記事では、gganimateパッケージによるアニメーションにおいて値が変化する数式の表示方法を確認する。  
 <br>
 
 
-# gganimateパッケージで値が変化する数式を表示したい
+# gganimateパッケージで値の変化する数式を表示したい
+
+　`gganimate` パッケージを利用して、`ggplot2` パッケージによるグラフのアニメーションを作成できる。また、`base` パッケージ(組み込み関数)の `expression()` を使って図に数式を描画できる。この記事では、expression記法による数式をアニメーションに表示する小細工(黒魔術)的な処理を備忘録として書いておく。  
+　expression記法による数式の表示については、「expression関数による数式表現」を参照のこと。  
+<br>
+
+　利用するパッケージを読み込む。
+
+```{r}
+#| eval: false
+
+# 利用パッケージ
+library(tidyverse)
+library(gganimate)
+```
+
+```{r}
+#| echo: false
+
+### 資料作成用:(パッケージの読込)
+
+# パッケージを読込
+library(ggplot2)
+```
+
+　この記事では、基本的に `パッケージ名::関数名()` の記法を使うので、パッケージを読み込む必要はない。ただし、作図コードについてはパッケージ名を省略するので、`ggplot2` を読み込む必要がある。  
+　また、ネイティブパイプ演算子 `|>` を使う。`magrittr` パッケージのパイプ演算子 `%>%` に置き換えられるが、その場合は `magrittr` を読み込む必要がある。  
+<br>
 
 
+## サブタイトルに表示
+
+　フレームごとの数式をサブタイトルの位置に描画することを考える。  
+　単位円の円周上の点を例とする。円周の座標については「円周の作図」を参照のこと。  
+<br>
+
+　円周の座標を作成する。
+
+```{r}
+# 円周の座標を作成
+circle_df <- tibble::tibble(
+  t = seq(from = 0, to = 2*pi, length.out = 361), 
+  x = cos(t), 
+  y = sin(t)
+)
+circle_df
+```
+
+　単位円周上の点 $(x, y)$ の座標は、ラジアン $0 \leq t \leq 2 \pi$ を用いて $(x, y) = (\cos t, \sin t)$ で得られる。  
+<br>
+
+
+### フレーム番号による切り替え
+
+　フレームごとの通し番号(昇順の重複しない値)を用いてグラフを切り替える。  
+<br>
+
+
+#### 基本的な使い方
+
+　まずは、`gganimate` パッケージの基本的な使い方を確認する。  
+<br>
+
+　円周上の点の座標を作成する。
+
+```{r}
+# フレーム数を指定
+frame_num <- 60
+
+# 円周上の点の座標を作成
+point_df <- tibble::tibble(
+  frame_i = 1:frame_num, 
+  t = seq(from = 0, to = 2*pi, length.out = frame_num+1)[-(frame_num+1)], 
+  x = cos(t), 
+  y = sin(t)
+)
+point_df
+```
+
+　フレーム数を指定して、フレーム番号と単位円周上の点の座標をデータフレームに格納する。  
+
+　円周上の点のアニメーションを作成する。
+
+```{r}
+# 円周上の点を作図
+graph <- ggplot() + 
+  geom_path(data = circle_df, 
+            mapping = aes(x = x, y = y), 
+            linewidth = 1) + # 円周
+  geom_point(data = point_df, 
+            mapping = aes(x = x, y = y), 
+            size = 5) + # 円周上の点
+  gganimate::transition_manual(frames = frame_i) + # フレーム制御
+  coord_equal(ratio = 1) + # アスペクト比
+  labs(title = "unit circle", 
+       subtitle = "{current_frame}")
+
+# アニメーションを作成
+anim <- gganimate::animate(
+  plot = graph, nframes = frame_num, fps = 10, 
+  width = 500, height = 500
+)
+
+# ファイルを書き出し
+gganimate::anim_save(filename = "frame_index.gif", animation = anim, path = "../output/expression")
+```
+
+![](../output/expression/frame_index.gif)
+
+　`gganimate` パッケージの `transition_manual()` にフレーム順を示す列を指定する。指定したフレームごとの値を `"{current_frame}"` で扱える。  
+　各フレームのグラフをフレーム番号で制御して、サブタイトルにフレーム番号を表示している。  
+
+　フレーム番号に文字列を追加して表示する。
+
+```{r}
+# 円周上の点を作図
+graph <- ggplot() + 
+  geom_path(data = circle_df, 
+            mapping = aes(x = x, y = y), 
+            linewidth = 1) + # 円周
+  geom_point(data = point_df, 
+            mapping = aes(x = x, y = y), 
+            size = 5) + # 円周上の点
+  gganimate::transition_manual(frames = frame_i) + # フレーム制御
+  coord_equal(ratio = 1) + # アスペクト比
+  labs(title = "unit circle", 
+       subtitle = "frame: {current_frame}")
+
+# アニメーションを作成
+anim <- gganimate::animate(
+  plot = graph, nframes = frame_num, fps = 10, 
+  width = 500, height = 500
+)
+
+# ファイルを書き出し
+gganimate::anim_save(filename = "add_string.gif", animation = anim, path = "../output/expression")
+```
+
+![](../output/expression/add_string.gif)
+
+　`"{current_frame}"` の波括弧 `{}` の外に文字列を追加できる。  
+<br>
+
+
+#### ベクトルによるラベルの切り替え
+
+　ここからは、サブタイトルに数式を表示する方法を確認していく。  
+<br>
+
+　フレームラベルを作成する。
+
+```{r}
+# 円周上の点の座標を作成
+point_df <- point_df |> 
+  dplyr::mutate(
+    frame_label = paste0(
+      "(x, y) = (", round(x, digits = 2), ", ", round(y, digits = 2), ")"
+    )
+  )
+point_df
+```
+
+　フレーム番号に応じて座標とラベルをデータフレームに格納する。  
+　この例では、各フレームのラベルとして座標の値を用いる。  
+
+　フレームごとにラベルを表示する。
+
+```{r}
+# 円周上の点を作図
+graph <- ggplot() + 
+  geom_path(data = circle_df, 
+            mapping = aes(x = x, y = y), 
+            linewidth = 1) + # 円周
+  geom_point(data = point_df, 
+            mapping = aes(x = x, y = y), 
+            size = 5) + # 円周上の点
+  gganimate::transition_manual(frames = frame_i) + # フレーム制御
+  coord_equal(ratio = 1) + # アスペクト比
+  labs(title = "unit circle", 
+       subtitle = "{point_df[['frame_label']][as.integer(current_frame)]}")
+
+# アニメーションを作成
+anim <- gganimate::animate(
+  plot = graph, nframes = frame_num, fps = 10, 
+  width = 500, height = 500
+)
+
+# ファイルを書き出し
+gganimate::anim_save(filename = "as_index.gif", animation = anim, path = "../output/expression")
+```
+
+![](../output/expression/as_index.gif)
+
+　`"{current_frame}"` の波括弧 `{}` の内で `current_frame` を変数として扱える。  
+　フレーム番号をインデックスとして用いて、フレームごとのラベルをベクトルから取り出して表示する。  
+
+　フレームラベルを作成する。
+
+```{r}
+# 円周上の点の座標を作成
+point_df <- point_df |> 
+  dplyr::mutate(
+    frame_label = paste0(
+      "(x, y) = (", sprintf(x, fmt = "%.2f"), ", ", sprintf(y, fmt = "%.2f"), ")"
+    )
+  )
+point_df
+```
+
+　小数点以下の桁数が変化しないように `0` で埋める場合は、`sprintf()` を使って丸め込みを行う。  
+
+　フレームごとにラベルを表示する。
+
+```{r}
+# 円周上の点を作図
+graph <- ggplot() + 
+  geom_path(data = circle_df, 
+            mapping = aes(x = x, y = y), 
+            linewidth = 1) + # 円周
+  geom_point(data = point_df, 
+            mapping = aes(x = x, y = y), 
+            size = 5) + # 円周上の点
+  gganimate::transition_manual(frames = frame_i) + # フレーム制御
+  coord_equal(ratio = 1) + # アスペクト比
+  labs(title = "unit circle", 
+       subtitle = "{point_df[['frame_label']][as.integer(current_frame)]}")
+
+# アニメーションを作成
+anim <- gganimate::animate(
+  plot = graph, nframes = frame_num, fps = 10, 
+  width = 500, height = 500
+)
+
+# ファイルを書き出し
+gganimate::anim_save(filename = "zero_padding.gif", animation = anim, path = "../output/expression")
+```
+
+![](../output/expression/zero_padding.gif)
+
+　先ほどの作図コードで描画する。  
+<br>
+
+
+### フレームラベルによる切り替え
+
+　フレームごとのラベル(因子レベルを設定した重複しない文字列)を用いてグラフを切り替える。  
+<br>
+
+
+#### character型のラベル
+
+　フレームラベルに因子レベルを設定する。
+
+```{r}
+# 円周上の点の座標を作成
+point_df <- point_df |> 
+  dplyr::mutate(
+    frame_label = paste0(
+      "(x, y) = (", sprintf(x, fmt = "%.2f"), ", ", sprintf(y, fmt = "%.2f"), ")"
+    ) |> 
+      (\(vec) {factor(vec, levels = vec)})()
+  )
+point_df
+```
+
+　各フレームのラベルを因子型に変換して、フレーム順に因子レベルを設定する。  
+　`\() {}` は自作関数の簡易的な記法であり、この例の処理をbaseパイプを使って行う場合には必要になる。magrittrパイプを使う場合は `factor(., levels = .)` で処理できる。  
+
+　因子レベルを確認する。
+
+```{r}
+# 因子レベルを確認
+head(point_df[["frame_label"]])
+```
+
+　因子レベルの順番にグラフが表示される。  
+
+　フレームラベルによりフレームを制御する。
+
+```{r}
+# 円周上の点を作図
+graph <- ggplot() + 
+  geom_path(data = circle_df, 
+            mapping = aes(x = x, y = y), 
+            linewidth = 1) + # 円周
+  geom_point(data = point_df, 
+            mapping = aes(x = x, y = y), 
+            size = 5) + # 円周上の点
+  gganimate::transition_manual(frames = frame_label) + # フレーム制御
+  coord_equal(ratio = 1) + # アスペクト比
+  labs(title = "unit circle", 
+       subtitle = "{current_frame}")
+
+# アニメーションを作成
+anim <- gganimate::animate(
+  plot = graph, nframes = frame_num, fps = 10, 
+  width = 500, height = 500
+)
+
+# ファイルを書き出し
+gganimate::anim_save(filename = "frame_label.gif", animation = anim, path = "../output/expression")
+```
+
+![](../output/expression/frame_label.gif)
+
+　各フレームのグラフをラベルの因子レベルで制御して、サブタイトルにラベルを表示している。  
+<br>
+
+
+#### expression型のラベル
+
+　expression記法のラベルを作成する。
+
+```{r}
+# 円周上の点の座標を作成
+point_df <- point_df |> 
+  dplyr::mutate(
+    frame_label = paste0(
+      "(list(cos~theta, sin~theta)) == (list('", sprintf(x, fmt = "%.2f"), "', '", sprintf(y, fmt = "%.2f"), "'))"
+    ) |> 
+      (\(vec) {factor(vec, levels = vec)})()
+  )
+point_df
+```
+
+　expression記法では、等号は `==`、複数の(数式上の)変数を並べる場合は `list(変数1, 変数2)` で表示できる。( `(list(変数1, 変数2))` をより簡単に `{}(変数1, 変数2)` とも書けるが、資料作成の都合上(次の図で `{}` の間に改行の記号 `\n` が含まれてしまうため) `list()` の方を使っている。)  
+
+　意図通りにならない例を確認する。
+
+```{r}
+# 円周上の点を作図
+graph <- ggplot() + 
+  geom_path(data = circle_df, 
+            mapping = aes(x = x, y = y), 
+            linewidth = 1) + # 円周
+  geom_point(data = point_df, 
+            mapping = aes(x = x, y = y), 
+            size = 5) + # 円周上の点
+  gganimate::transition_manual(frames = frame_label) + # フレーム制御
+  coord_equal(ratio = 1) + # アスペクト比
+  labs(title = "unit circle", 
+       subtitle = "{parse(text = as.character(current_frame))}")
+
+# アニメーションを作成
+anim <- gganimate::animate(
+  plot = graph, nframes = frame_num, fps = 10, 
+  width = 500, height = 500
+)
+
+# ファイルを書き出し
+gganimate::anim_save(filename = "expression_fnc.gif", animation = anim, path = "../output/expression")
+```
+
+![](../output/expression/expression_fnc.gif)
+
+　(文字列型に変換されるからなのか(?)、) `"{current_frame}"` を用いてexpression記法を使えないらしい。  
+
+　ラベル関数を使ってサブタイトルを代用する。
+
+```{r}
+# 円周上の点を作図
+graph <- ggplot() + 
+  geom_path(data = circle_df, 
+            mapping = aes(x = x, y = y), 
+            linewidth = 1) + # 円周
+  geom_point(data = point_df, 
+            mapping = aes(x = x, y = y), 
+            size = 5) + # 円周上の点
+  geom_text(data = point_df, 
+            mapping = aes(x = -Inf, y = Inf, label = frame_label), 
+            parse = TRUE, hjust = 0, vjust = -0.5, size = 4) + # サブタイトルの代用
+  gganimate::transition_manual(frames = frame_i) + # フレーム制御
+  coord_equal(ratio = 1, clip = "off") + # アスペクト比
+  theme(
+    plot.title = element_text(size = 12), # タイトル
+    plot.subtitle = element_text(size = 60) # サブタイトル
+  ) + # 図の体裁
+  labs(
+    title = "unit circle", 
+    subtitle = "" # ラベル用の空行
+  )
+
+# アニメーションを作成
+anim <- gganimate::animate(
+  plot = graph, nframes = frame_num, fps = 10, 
+  width = 500, height = 500
+)
+
+# ファイルを書き出し
+gganimate::anim_save(filename = "text_fnc.gif", animation = anim, path = "../output/expression")
+```
+
+![](../output/expression/text_fnc.gif)
+
+　`geom_text()` で文字列を描画できるので、サブタイトルの位置に各フレームのラベルを表示する。`parse = TRUE` を指定するとexpression記法で数式を表示できる。`x = -Inf` で描画領域の左端、`y = Inf` で描画領域の最上部にプロットする。また、`hjust = 0` で左揃え、`vjust` 引数で上下方向の表示位置を調整する。  
+　`coord_***()` に `clip = "off"` を指定して、描画領域の外側にラベル(やデータ点など)を描画できるように設定する。  
+　`labs()` の `subtitle` 引数に空白を指定して、ラベルの表示できる空間を開けておく。  
+　サブタイトルなどの図の体裁は `theme()` で設定できる。`plot.subtitle` 引数に `element_text()` を使って調整する。  
+
+　(サブタイトルの位置に拘らず)描画領域の内側であればシンプルに処理できる。
+
+```{r}
+# 円周上の点を作図
+graph <- ggplot() + 
+  geom_path(data = circle_df, 
+            mapping = aes(x = x, y = y), 
+            linewidth = 1) + # 円周
+  geom_point(data = point_df, 
+            mapping = aes(x = x, y = y), 
+            size = 5) + # 円周上の点
+  geom_label(data = point_df, 
+             mapping = aes(x = -Inf, y = Inf, label = frame_label), 
+             parse = TRUE, hjust = 0, vjust = 1, size = 4, alpha = 0.8) + # フレームラベル
+  gganimate::transition_manual(frames = frame_i) + # フレーム制御
+  coord_equal(ratio = 1, clip = "off") + # アスペクト比
+  labs(title = "unit circle")
+
+# アニメーションを作成
+anim <- gganimate::animate(
+  plot = graph, nframes = frame_num, fps = 10, 
+  width = 500, height = 500
+)
+
+# ファイルを書き出し
+gganimate::anim_save(filename = "label_fnc.gif", animation = anim, path = "../output/expression")
+```
+
+![](../output/expression/label_fnc.gif)
+
+　`geom_label()` で枠付きの文字列を描画できる。``geom_text()` と同様に処理する。  
+<br>
+
+　以上で、フレームごとの数式をサブタイトルの位置に描画できた。  
+<br>
 
 　この記事では、gganimateパッケージの利用時に値が変化する数式の表示方法を確認した。  
 <br>
@@ -550,7 +982,8 @@ text(x = 3, y = 1, labels = exp_val3, adj = c(1, 2)) # 出力
 
 # 参考文献
 
-
+- 掌田津耶乃『R／RStudioでやさしく学ぶプログラミングとデータ分析』マイナビ出版,2023年.
+- 松村優哉,湯谷啓明,紀ノ定保礼,前田和寛『改訂2版 RユーザのためのRStudio[実践]入門〜tidyverseによるモダンな分析フローの世界』技術評論社,2021年
 
 <br>
 
